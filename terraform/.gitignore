@@ -3,8 +3,6 @@
 *.tfstate
 *.tfstate.*
 terraform.tfstate
-terraform.tfvars
-*.tfvars
 .terraform.tfstate.lock.info
 crash.log
 
