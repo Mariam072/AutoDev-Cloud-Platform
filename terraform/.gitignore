@@ -28,3 +28,12 @@ Thumbs.db
 # Local files
 *.log
 *.tmp
+
+# Node.js dependencies
+/app/node_modules/
+
+# Env files
+/app/.env
+
+# Logs
+/app/logs/
