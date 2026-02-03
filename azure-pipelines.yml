@@ -15,10 +15,9 @@ parameters:
 
 variables:
   TF_DIR: terraform
-  # Ensure the variable file path is correctly interpolated with '$'
-  TF_VAR_FILE: '${{ parameters.env }}.tfvars'
-  AWS_SERVICE_CONNECTION: 'mariam'
-  AWS_REGION: us-east-1
+  TF_VAR_FILE: '{{ parameters.env }}.tfvars'
+  AWS_SERVICE_CONNECTION: mariam
+  AWS_REGION: eu-north-1
 
 pool:
   vmImage: ubuntu-latest
@@ -61,8 +60,7 @@ steps:
     inlineScript: |
       set -euo pipefail
       cd "$(TF_DIR)"
-      # Added -var "environment=..." to prevent interactive prompt
-      terraform plan -out=tfplan -var-file="$(TF_VAR_FILE)" -var "environment=${{ parameters.env }}"
+      terraform plan -out=tfplan -var-file="$(TF_VAR_FILE)"
 
 - task: AWSShellScript@1
   displayName: Terraform apply
@@ -86,8 +84,7 @@ steps:
     inlineScript: |
       set -euo pipefail
       cd "$(TF_DIR)"
-      # Added -var "environment=..." to prevent interactive prompt
-      terraform plan -destroy -out=tfplan -var-file="$(TF_VAR_FILE)" -var "environment=${{ parameters.env }}"
+      terraform plan -destroy -out=tfplan -var-file="$(TF_VAR_FILE)"
 
 - task: AWSShellScript@1
   displayName: Terraform apply destroy
