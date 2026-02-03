@@ -3,18 +3,14 @@ variable "env" {
   type        = string
 }
 
-variable "backend_uri" {
-  description = "The HTTP URI of the backend service (internal LB DNS)"
-  type        = string
+variable "region" {
+  type = string
 }
 
-variable "lb_arns" {
-  description = "List of internal Load Balancer ARNs for VPC Link"
-  type        = list(string)
+variable "user_pool_id" {
+  type = string
 }
 
-variable "aws_region" {
-  description = "AWS Region"
-  type        = string
-  default     = "eu-west-1"
+variable "user_pool_client_id" {
+  type = string
 }

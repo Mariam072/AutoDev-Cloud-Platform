@@ -1,65 +1,58 @@
-# =========================
-# API Gateway REST API
-# =========================
-resource "aws_api_gateway_rest_api" "api" {
-  name        = "api-${var.env}"
-  description = "API Gateway for ${var.env} environment"
+resource "aws_cognito_user_pool" "this" {
+  name = "${var.env}-user-pool"
+
+  auto_verified_attributes = ["email"]
+
+  password_policy {
+    minimum_length    = 8
+    require_uppercase = true
+    require_lowercase = true
+    require_numbers   = true
+    require_symbols   = false
+  }
+
+  schema {
+    name                = "email"
+    attribute_data_type = "String"
+    required            = true
+    mutable             = true
+  }
 }
 
-# =========================
-# Example Resource Path
-# =========================
-resource "aws_api_gateway_resource" "example" {
-  rest_api_id = aws_api_gateway_rest_api.api.id
-  parent_id   = aws_api_gateway_rest_api.api.root_resource_id
-  path_part   = "example"
+resource "aws_cognito_user_pool_client" "this" {
+  name         = "${var.env}-user-pool-client"
+  user_pool_id = aws_cognito_user_pool.this.id
+
+  generate_secret = false
+
+  explicit_auth_flows = [
+    "ALLOW_USER_PASSWORD_AUTH",
+    "ALLOW_REFRESH_TOKEN_AUTH",
+    "ALLOW_USER_SRP_AUTH"
+  ]
+
+  supported_identity_providers = ["COGNITO"]
+}
+resource "aws_apigatewayv2_api" "this" {
+  name          = "${var.env}-http-api"
+  protocol_type = "HTTP"
 }
 
-# =========================
-# GET Method
-# =========================
-resource "aws_api_gateway_method" "get_example" {
-  rest_api_id   = aws_api_gateway_rest_api.api.id
-  resource_id   = aws_api_gateway_resource.example.id
-  http_method   = "GET"
-  authorization = "NONE"
+resource "aws_apigatewayv2_authorizer" "cognito" {
+  api_id = aws_apigatewayv2_api.this.id
+  name   = "${var.env}-cognito-authorizer"
+
+  authorizer_type  = "JWT"
+  identity_sources = ["$request.header.Authorization"]
+
+  jwt_configuration {
+    audience = [var.user_pool_client_id]
+    issuer   = "https://cognito-idp.${var.region}.amazonaws.com/${var.user_pool_id}"
+  }
 }
 
-# =========================
-# VPC Link Integration
-# =========================
-resource "aws_api_gateway_integration" "example" {
-  rest_api_id             = aws_api_gateway_rest_api.api.id
-  resource_id             = aws_api_gateway_resource.example.id
-  http_method             = aws_api_gateway_method.get_example.http_method
-  type                    = "HTTP_PROXY"
-  connection_type         = "VPC_LINK"
-  connection_id           = aws_api_gateway_vpc_link.vpc_link.id
-  uri                     = var.backend_uri
-  integration_http_method = "GET"
-}
-
-# =========================
-# VPC Link to Internal LB
-# =========================
-resource "aws_api_gateway_vpc_link" "vpc_link" {
-  name        = "vpc-link-${var.env}"
-  target_arns = var.lb_arns
-}
-
-# =========================
-# Deployment
-# =========================
-resource "aws_api_gateway_deployment" "deployment" {
-  depends_on  = [aws_api_gateway_integration.example]
-  rest_api_id = aws_api_gateway_rest_api.api.id
-}
-
-# =========================
-# Stage
-# =========================
-resource "aws_api_gateway_stage" "stage" {
-  stage_name    = var.env
-  rest_api_id   = aws_api_gateway_rest_api.api.id
-  deployment_id = aws_api_gateway_deployment.deployment.id
+resource "aws_apigatewayv2_stage" "default" {
+  api_id      = aws_apigatewayv2_api.this.id
+  name        = "$default"
+  auto_deploy = true
 }
