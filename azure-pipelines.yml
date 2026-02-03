@@ -18,7 +18,7 @@ parameters:
 variables:
   TF_DIR: terraform
   TF_VAR_FILE: '${{ parameters.env }}.tfvars'
-  AWS_SERVICE_CONNECTION: 'mariam'
+  AWS_SERVICE_CONNECTION: 'AWS-Service-Connection'
   AWS_REGION: eu-west-1
 
 jobs:
@@ -96,18 +96,31 @@ jobs:
           cd "$(TF_DIR)"
           terraform plan -destroy -out=tfplan -var-file="$(TF_VAR_FILE)"
 
-# ───────────────────────── APPLY (DEPLOYMENT JOB) ─────────────────────────
+    # 🔑 Share the plan file with next jobs
+    - task: PublishPipelineArtifact@1
+      displayName: Publish Terraform plan
+      inputs:
+        targetPath: '$(TF_DIR)/tfplan'
+        artifact: tfplan
+
+# ───────────────────────── APPLY (DEPLOYMENT JOB + APPROVAL) ─────────────────────────
 - deployment: TerraformApply
   displayName: Terraform Apply
   dependsOn: TerraformPlan
   condition: eq('${{ parameters.destroy }}', false)
   environment: ${{ parameters.env }}
   pool:
-    name: default
+    vmImage: ubuntu-latest
   strategy:
     runOnce:
       deploy:
         steps:
+          - task: DownloadPipelineArtifact@2
+            displayName: Download Terraform plan
+            inputs:
+              artifact: tfplan
+              path: $(TF_DIR)
+
           - task: AWSShellScript@1
             displayName: Terraform apply
             inputs:
@@ -119,18 +132,24 @@ jobs:
                 cd "$(TF_DIR)"
                 terraform apply -auto-approve tfplan
 
-# ───────────────────────── DESTROY (DEPLOYMENT JOB) ─────────────────────────
+# ───────────────────────── DESTROY (DEPLOYMENT JOB + APPROVAL) ─────────────────────────
 - deployment: TerraformDestroy
   displayName: Terraform Destroy
   dependsOn: TerraformPlan
   condition: eq('${{ parameters.destroy }}', true)
   environment: ${{ parameters.env }}
   pool:
-    name: default
+    vmImage: ubuntu-latest
   strategy:
     runOnce:
       deploy:
         steps:
+          - task: DownloadPipelineArtifact@2
+            displayName: Download Terraform plan
+            inputs:
+              artifact: tfplan
+              path: $(TF_DIR)
+
           - task: AWSShellScript@1
             displayName: Terraform apply destroy
             inputs:
