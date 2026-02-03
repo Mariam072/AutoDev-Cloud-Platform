@@ -1,4 +1,5 @@
 trigger: none
+
 pr: none
 
 parameters:
@@ -7,7 +8,6 @@ parameters:
     type: string
     default: prod
     values: [nonprod, prod]
-
   - name: destroy
     displayName: Destroy
     type: boolean
@@ -18,6 +18,7 @@ variables:
   TF_VAR_FILE: '${{ parameters.env }}.tfvars'
   AWS_SERVICE_CONNECTION: mariam
   AWS_REGION: eu-west-1
+  EKS_CLUSTER_NAME: '${{ parameters.env }}-eks-cluster'   # ← IMPORTANT: change this or make it variable
 
 pool:
   vmImage: ubuntu-latest
@@ -74,7 +75,99 @@ steps:
       cd "$(TF_DIR)"
       terraform apply -auto-approve tfplan
 
-# Destroy (only if destroy=true)
+# ───────────────────────────────────────────────
+#     ↓↓↓  NEW: Bootstrap Argo CD via Helm   ↓↓↓
+# ───────────────────────────────────────────────
+
+- task: AWSShellScript@1
+  displayName: Update kubeconfig for EKS
+  condition: eq('${{ parameters.destroy }}', false)
+  inputs:
+    awsCredentials: $(AWS_SERVICE_CONNECTION)
+    regionName: $(AWS_REGION)
+    scriptType: inline
+    inlineScript: |
+      set -euo pipefail
+      aws eks update-kubeconfig --name $(EKS_CLUSTER_NAME) --region $(AWS_REGION) --alias $(EKS_CLUSTER_NAME)
+      kubectl version --short
+      kubectl get nodes --no-headers | wc -l   # quick health check
+
+- task: HelmInstaller@1
+  displayName: Install Helm CLI
+  condition: eq('${{ parameters.destroy }}', false)
+  inputs:
+    helmVersionToInstall: 'latest'     # or pin e.g. 'v3.16.2'
+
+- task: AWSShellScript@1
+  displayName: Prepare Argo CD Helm repo
+  condition: eq('${{ parameters.destroy }}', false)
+  inputs:
+    awsCredentials: $(AWS_SERVICE_CONNECTION)
+    regionName: $(AWS_REGION)
+    scriptType: inline
+    inlineScript: |
+      set -euo pipefail
+      helm repo add argo https://argoproj.github.io/argo-helm
+      helm repo update
+
+- task: AWSShellScript@1
+  displayName: Ensure argocd namespace + Install Argo CD
+  condition: eq('${{ parameters.destroy }}', false)
+  inputs:
+    awsCredentials: $(AWS_SERVICE_CONNECTION)
+    regionName: $(AWS_REGION)
+    scriptType: inline
+    inlineScript: |
+      set -euo pipefail
+
+      # Create namespace (idempotent)
+      kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
+
+      # Install / upgrade Argo CD
+      helm upgrade --install argocd argo/argo-cd \
+        --namespace argocd \
+        --version 7.6.3 \                  # ← change to desired version (check artifacthub.io)
+        --wait --timeout 8m \
+        --set server.ingress.enabled=false \
+        --set server.service.type=LoadBalancer \   # optional: quick exposure via AWS LB
+        # --set configs.secret.argocdServerAdminPassword='$2a$10$your-bcrypt-hash-here'   # optional: fixed password
+
+      echo "Argo CD installed / upgraded"
+
+- task: AWSShellScript@1
+  displayName: Wait for Argo CD to become ready
+  condition: eq('${{ parameters.destroy }}', false)
+  inputs:
+    awsCredentials: $(AWS_SERVICE_CONNECTION)
+    regionName: $(AWS_REGION)
+    scriptType: inline
+    inlineScript: |
+      set -euo pipefail
+      kubectl wait --namespace argocd \
+        --for=condition=Available deployment/argocd-server \
+        --timeout=300s
+
+      echo "Argo CD server is ready"
+      kubectl get pods -n argocd -o wide
+
+# Optional: show initial password (only useful for first time / debugging)
+- task: AWSShellScript@1
+  displayName: Show Argo CD initial admin password
+  condition: and(eq('${{ parameters.destroy }}', false), succeeded())
+  continueOnError: true
+  inputs:
+    awsCredentials: $(AWS_SERVICE_CONNECTION)
+    regionName: $(AWS_REGION)
+    scriptType: inline
+    inlineScript: |
+      set -euo pipefail
+      echo "Initial admin password (save it now):"
+      kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 --decode
+      echo ""
+      echo "Username: admin"
+      echo "→ Change password immediately after first login!"
+
+# Destroy section (unchanged)
 - task: AWSShellScript@1
   displayName: Terraform plan destroy
   condition: eq('${{ parameters.destroy }}', true)
