@@ -96,42 +96,48 @@ jobs:
           cd "$(TF_DIR)"
           terraform plan -destroy -out=tfplan -var-file="$(TF_VAR_FILE)"
 
-# ───────────────────────── APPLY JOB (Approval + Self-hosted) ─────────────────────────
-- job: TerraformApply
+# ───────────────────────── APPLY (DEPLOYMENT JOB) ─────────────────────────
+- deployment: TerraformApply
   displayName: Terraform Apply
   dependsOn: TerraformPlan
   condition: eq('${{ parameters.destroy }}', false)
   environment: ${{ parameters.env }}
   pool:
     name: default
-  steps:
-    - task: AWSShellScript@1
-      displayName: Terraform apply
-      inputs:
-        awsCredentials: $(AWS_SERVICE_CONNECTION)
-        regionName: $(AWS_REGION)
-        scriptType: inline
-        inlineScript: |
-          set -euo pipefail
-          cd "$(TF_DIR)"
-          terraform apply -auto-approve tfplan
+  strategy:
+    runOnce:
+      deploy:
+        steps:
+          - task: AWSShellScript@1
+            displayName: Terraform apply
+            inputs:
+              awsCredentials: $(AWS_SERVICE_CONNECTION)
+              regionName: $(AWS_REGION)
+              scriptType: inline
+              inlineScript: |
+                set -euo pipefail
+                cd "$(TF_DIR)"
+                terraform apply -auto-approve tfplan
 
-# ───────────────────────── DESTROY JOB (Approval + Self-hosted) ─────────────────────────
-- job: TerraformDestroy
+# ───────────────────────── DESTROY (DEPLOYMENT JOB) ─────────────────────────
+- deployment: TerraformDestroy
   displayName: Terraform Destroy
   dependsOn: TerraformPlan
   condition: eq('${{ parameters.destroy }}', true)
   environment: ${{ parameters.env }}
   pool:
     name: default
-  steps:
-    - task: AWSShellScript@1
-      displayName: Terraform apply destroy
-      inputs:
-        awsCredentials: $(AWS_SERVICE_CONNECTION)
-        regionName: $(AWS_REGION)
-        scriptType: inline
-        inlineScript: |
-          set -euo pipefail
-          cd "$(TF_DIR)"
-          terraform apply -auto-approve tfplan
+  strategy:
+    runOnce:
+      deploy:
+        steps:
+          - task: AWSShellScript@1
+            displayName: Terraform apply destroy
+            inputs:
+              awsCredentials: $(AWS_SERVICE_CONNECTION)
+              regionName: $(AWS_REGION)
+              scriptType: inline
+              inlineScript: |
+                set -euo pipefail
+                cd "$(TF_DIR)"
+                terraform apply -auto-approve tfplan
