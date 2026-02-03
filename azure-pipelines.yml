@@ -89,7 +89,7 @@ steps:
     inlineScript: |
       set -euo pipefail
       aws eks update-kubeconfig --name $(EKS_CLUSTER_NAME) --region $(AWS_REGION) --alias $(EKS_CLUSTER_NAME)
-      kubectl version --short
+      kubectl version --client
       kubectl get nodes --no-headers | wc -l   # quick health check
 
 - task: HelmInstaller@1
