@@ -21,80 +21,89 @@ variables:
   AWS_SERVICE_CONNECTION: 'mariam'
   AWS_REGION: eu-west-1
 
-pool:
-  vmImage: ubuntu-latest
+jobs:
+# ───────────────────────── PLAN JOB ─────────────────────────
+- job: TerraformPlan
+  displayName: Terraform Plan
+  pool:
+    vmImage: ubuntu-latest
+  steps:
+    - checkout: self
 
-steps:
-- checkout: self
+    - task: TerraformInstaller@1
+      displayName: Install Terraform
+      inputs:
+        terraformVersion: 1.6.6
 
-# ───────────────────────── Terraform Install ─────────────────────────
-- task: TerraformInstaller@1
-  displayName: Install Terraform
-  inputs:
-    terraformVersion: 1.6.6
+    - task: AWSShellScript@1
+      displayName: Configure AWS credentials
+      inputs:
+        awsCredentials: $(AWS_SERVICE_CONNECTION)
+        regionName: $(AWS_REGION)
+        scriptType: inline
+        inlineScript: |
+          set -euo pipefail
+          echo "AWS credentials configured"
 
-# ───────────────────────── AWS Auth ─────────────────────────
-- task: AWSShellScript@1
-  displayName: Configure AWS credentials
-  inputs:
-    awsCredentials: $(AWS_SERVICE_CONNECTION)
-    regionName: $(AWS_REGION)
-    scriptType: inline
-    inlineScript: |
-      set -euo pipefail
-      echo "AWS credentials configured"
+    - task: AWSShellScript@1
+      displayName: Terraform init
+      inputs:
+        awsCredentials: $(AWS_SERVICE_CONNECTION)
+        regionName: $(AWS_REGION)
+        scriptType: inline
+        inlineScript: |
+          set -euo pipefail
+          cd "$(TF_DIR)"
+          terraform init -reconfigure
 
-# ───────────────────────── Terraform Init ─────────────────────────
-- task: AWSShellScript@1
-  displayName: Terraform init
-  inputs:
-    awsCredentials: $(AWS_SERVICE_CONNECTION)
-    regionName: $(AWS_REGION)
-    scriptType: inline
-    inlineScript: |
-      set -euo pipefail
-      cd "$(TF_DIR)"
-      terraform init -reconfigure
+    - task: AWSShellScript@1
+      displayName: Select Terraform workspace
+      inputs:
+        awsCredentials: $(AWS_SERVICE_CONNECTION)
+        regionName: $(AWS_REGION)
+        scriptType: inline
+        inlineScript: |
+          set -euo pipefail
+          cd "$(TF_DIR)"
 
-# ───────────────────────── Workspace Selection ─────────────────────────
-- task: AWSShellScript@1
-  displayName: Select Terraform workspace
-  inputs:
-    awsCredentials: $(AWS_SERVICE_CONNECTION)
-    regionName: $(AWS_REGION)
-    scriptType: inline
-    inlineScript: |
-      set -euo pipefail
-      cd "$(TF_DIR)"
+          if [ "${{ parameters.env }}" = "prod" ]; then
+            terraform workspace select default
+          else
+            terraform workspace select nonprod || terraform workspace new nonprod
+          fi
 
-      if [ "${{ parameters.env }}" = "prod" ]; then
-        echo "Using default workspace for prod"
-        terraform workspace select default
-      else
-        echo "Using nonprod workspace"
-        terraform workspace select nonprod || terraform workspace new nonprod
-      fi
+    - task: AWSShellScript@1
+      displayName: Terraform plan
+      condition: eq('${{ parameters.destroy }}', false)
+      inputs:
+        awsCredentials: $(AWS_SERVICE_CONNECTION)
+        regionName: $(AWS_REGION)
+        scriptType: inline
+        inlineScript: |
+          set -euo pipefail
+          cd "$(TF_DIR)"
+          terraform plan -out=tfplan -var-file="$(TF_VAR_FILE)"
 
-# ───────────────────────── Terraform Plan ─────────────────────────
-- task: AWSShellScript@1
-  displayName: Terraform plan
-  condition: eq('${{ parameters.destroy }}', false)
-  inputs:
-    awsCredentials: $(AWS_SERVICE_CONNECTION)
-    regionName: $(AWS_REGION)
-    scriptType: inline
-    inlineScript: |
-      set -euo pipefail
-      cd "$(TF_DIR)"
-      terraform plan -out=tfplan -var-file="$(TF_VAR_FILE)"
+    - task: AWSShellScript@1
+      displayName: Terraform plan destroy
+      condition: eq('${{ parameters.destroy }}', true)
+      inputs:
+        awsCredentials: $(AWS_SERVICE_CONNECTION)
+        regionName: $(AWS_REGION)
+        scriptType: inline
+        inlineScript: |
+          set -euo pipefail
+          cd "$(TF_DIR)"
+          terraform plan -destroy -out=tfplan -var-file="$(TF_VAR_FILE)"
 
-# ───────────────────────── Terraform Apply (WITH APPROVAL) ─────────────────────────
+# ───────────────────────── APPLY JOB (Approval + Self-hosted) ─────────────────────────
 - job: TerraformApply
   displayName: Terraform Apply
+  dependsOn: TerraformPlan
   condition: eq('${{ parameters.destroy }}', false)
   environment: ${{ parameters.env }}
   pool:
-    vmImage: ubuntu-latest
+    name: default
   steps:
     - task: AWSShellScript@1
       displayName: Terraform apply
@@ -107,26 +116,14 @@ steps:
           cd "$(TF_DIR)"
           terraform apply -auto-approve tfplan
 
-# ───────────────────────── Destroy Plan ─────────────────────────
-- task: AWSShellScript@1
-  displayName: Terraform plan destroy
-  condition: eq('${{ parameters.destroy }}', true)
-  inputs:
-    awsCredentials: $(AWS_SERVICE_CONNECTION)
-    regionName: $(AWS_REGION)
-    scriptType: inline
-    inlineScript: |
-      set -euo pipefail
-      cd "$(TF_DIR)"
-      terraform plan -destroy -out=tfplan -var-file="$(TF_VAR_FILE)"
-
-# ───────────────────────── Destroy Apply (WITH APPROVAL) ─────────────────────────
+# ───────────────────────── DESTROY JOB (Approval + Self-hosted) ─────────────────────────
 - job: TerraformDestroy
   displayName: Terraform Destroy
+  dependsOn: TerraformPlan
   condition: eq('${{ parameters.destroy }}', true)
   environment: ${{ parameters.env }}
   pool:
-    vmImage: ubuntu-latest
+    name: default
   steps:
     - task: AWSShellScript@1
       displayName: Terraform apply destroy
