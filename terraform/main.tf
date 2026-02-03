@@ -23,19 +23,19 @@ module "routing" {
   env                = var.env
 }
 
-module "cognito" {
-  source = "./modules/cognito"
-  env    = var.env
-}
+#module "cognito" {
+#  source = "./modules/cognito"
+#  env    = var.env
+#}
 
-module "api_gateway" {
-  source = "./modules/api_gateway"
+#module "api_gateway" {
+#  source = "./modules/api_gateway"
 
-  env                  = var.env
-  region               = var.aws_region
-  user_pool_id         = module.cognito.user_pool_id
-  user_pool_client_id  = module.cognito.user_pool_client_id
-}
+#  env                  = var.env
+#  region               = var.aws_region
+#  user_pool_id         = module.cognito.user_pool_id
+#  user_pool_client_id  = module.cognito.user_pool_client_id
+#}
 
 #IAM Role
 module "iam" {
