@@ -15,7 +15,7 @@ parameters:
 
 variables:
   TF_DIR: terraform
-  TF_VAR_FILE: '{{ parameters.env }}.tfvars'
+  TF_VAR_FILE: '${{ parameters.env }}.tfvars'
   AWS_SERVICE_CONNECTION: mariam
   AWS_REGION: eu-west-1
 
@@ -60,6 +60,7 @@ steps:
     inlineScript: |
       set -euo pipefail
       cd "$(TF_DIR)"
+      echo "Using tfvars file: $(TF_VAR_FILE)"
       terraform plan -out=tfplan -var-file="$(TF_VAR_FILE)"
 
 - task: AWSShellScript@1
@@ -73,7 +74,7 @@ steps:
       cd "$(TF_DIR)"
       terraform apply -auto-approve tfplan
 
-# Optional Destroy steps, only run if you set destroy=true when running the pipeline
+# Destroy (only if destroy=true)
 - task: AWSShellScript@1
   displayName: Terraform plan destroy
   condition: eq('${{ parameters.destroy }}', true)
