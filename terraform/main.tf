@@ -23,12 +23,19 @@ module "routing" {
   env                = var.env
 }
 
-#module "api_gateway"{
-# source      = "./modules/api_gateway"
-# env         = var.env
-# backend_uri = "http://internal-myservice-123456789.eu-west-1.elb.amazonaws.com:80"
-# lb_arns     = [aws_lb.internal_lb.arn]
-#}
+module "cognito" {
+  source = "./modules/cognito"
+  env    = var.env
+}
+
+module "api_gateway" {
+  source = "./modules/api_gateway"
+
+  env                  = var.env
+  region               = var.aws_region
+  user_pool_id         = module.cognito.user_pool_id
+  user_pool_client_id  = module.cognito.user_pool_client_id
+}
 
 #IAM Role
 module "iam" {

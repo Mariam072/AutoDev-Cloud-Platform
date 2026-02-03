@@ -9,6 +9,3 @@ output "user_pool_arn" {
 output "user_pool_client_id" {
   value = aws_cognito_user_pool_client.this.id
 }
-output "api_endpoint" {
-  value = aws_apigatewayv2_api.this.api_endpoint
-}
