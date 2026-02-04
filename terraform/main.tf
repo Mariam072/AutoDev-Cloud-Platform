@@ -18,7 +18,7 @@ module "eks" {
   env                        = var.env
   cluster_name               = var.cluster_name
   vpc_id                     = module.vpc.vpc_id
-  private_subnets             = module.vpc.private_subnets
+  private_subnets             = module.vpc.private_subnet_ids
 
   node_group_instance_type   = var.node_group_instance_type
   node_group_desired_size    = var.node_group_desired_size
@@ -55,7 +55,7 @@ module "api_gateway" {
   region              = var.aws_region
 
   vpc_id              = module.vpc.vpc_id
-  private_subnets     = module.vpc.private_subnets
+  private_subnets     = module.vpc.private_subnet_ids
 
   user_pool_id        = module.cognito.user_pool_id
   user_pool_client_id = module.cognito.user_pool_client_id
