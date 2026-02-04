@@ -1,20 +1,21 @@
+# Environment
 env = "prod"
 
+# AWS
 aws_region = "eu-west-1"
 
+# EKS
+cluster_name = "prod-eks-cluster"
+
+# VPC
 vpc_cidr = "10.0.0.0/16"
 
-azs = [
-  "eu-west-1a",
-  "eu-west-1b"
-]
+public_subnet_count  = 2
+private_subnet_count = 2
 
-#key_name = "mariam-key"
+# Node Group
+node_group_instance_type = "t3.small"
 
-cluster_version = "1.32"
-
-instance_types = ["t3.small"]
-
-node_min     = 1
-node_max     = 2
-node_desired = 1
+node_group_desired_size = 1
+node_group_min_size     = 1
+node_group_max_size     = 2

@@ -21,3 +21,18 @@
 #output "eks_cluster_name" {
 #  value = module.eks.cluster_name
 #}
+output "api_endpoint" {
+  value = module.api_gateway.api_endpoint
+}
+
+output "vpc_link_id" {
+  value = module.api_gateway.vpc_link_id
+}
+
+output "cluster_name" {
+  value = module.eks.cluster_name
+}
+
+output "ecr_repository_url" {
+  value = module.ecr.repository_url
+}

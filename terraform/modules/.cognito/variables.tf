@@ -1,4 +1,6 @@
 variable "env" {
-  description = "Environment name (prod/nonprod)"
-  type        = string
+  type = string
+}
+variable "region" {
+  type = string
 }

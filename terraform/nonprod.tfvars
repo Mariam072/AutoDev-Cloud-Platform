@@ -1,20 +1,21 @@
+# Environment
 env = "nonprod"
 
+# AWS
 aws_region = "eu-west-1"
 
-vpc_cidr = "10.0.0.0/16"
+# EKS
+cluster_name = "nonprod-eks-cluster"
 
-azs = [
-  "eu-west-1a",
-  "eu-west-1b"
-]
+# VPC
+vpc_cidr = "10.1.0.0/16"
 
-#key_name = "mariam-key"
+public_subnet_count  = 2
+private_subnet_count = 2
 
-#cluster_version = "1.27"
+# Node Group
+node_group_instance_type = "t3.small"
 
-instance_types = ["t3.small"]
-
-node_min     = 1
-node_max     = 2
-node_desired = 1
+node_group_desired_size = 1
+node_group_min_size     = 1
+node_group_max_size     = 2

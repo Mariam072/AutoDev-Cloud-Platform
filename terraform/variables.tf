@@ -1,70 +1,55 @@
-
-variable "aws_region" {
-  description = "AWS Region"
-  type        = string
-  default     = "eu-west-1"
-}
-
+# Environment (prod / nonprod)
 variable "env" {
-  description = "Environment name (nonprod / prod)"
   type        = string
- 
+  description = "Environment name"
 }
 
+# AWS region
+variable "aws_region" {
+  type        = string
+  description = "AWS Region to deploy the infrastructure"
+}
 
+# EKS cluster name
+variable "cluster_name" {
+  type        = string
+  description = "Name of the EKS cluster"
+}
+
+# VPC CIDR block
 variable "vpc_cidr" {
-  description = "CIDR block for VPC"
   type        = string
-  default     = "10.0.0.0/16"
+  description = "CIDR block for the VPC"
 }
 
-variable "azs" {
-  description = "Availability Zones"
-  type        = list(string)
-  default     = [
-    "eu-west-1a",
-    "eu-west-1b"
-  ]
-}
-
-
-#variable "key_name" {
-#  description = "EC2 key pair name for EKS nodes"
-#  type        = string
-#  default     = "mariam-key"
-#}
-
-
-
-variable "cluster_version" {
- description = "Kubernetes version for the EKS cluster"
- type        = string
-  default     = "1.27"
-}
-
-
-
-
-variable "instance_types" {
-  description = "EC2 instance types for EKS managed node group"
-  type        = list(string)
-  default     = ["t3.small"]
-}
-
-variable "node_min" {
-  description = "Minimum number of worker nodes in the EKS node group"
+# Subnets configuration
+variable "public_subnet_count" {
   type        = number
-  default     = 1
+  description = "Number of public subnets"
 }
 
-variable "node_max" {
-  description = "Maximum number of worker nodes in the EKS node group"
+variable "private_subnet_count" {
   type        = number
-  default     = 3
+  description = "Number of private subnets"
 }
 
-variable "node_desired" {
-  description = "Desired number of worker nodes in the EKS node group"
+# Node group configuration
+variable "node_group_instance_type" {
+  type        = string
+  description = "Instance type for EKS managed node group"
+}
+
+variable "node_group_desired_size" {
   type        = number
-  default     = 2
+  description = "Desired number of nodes in the node group"
+}
+
+variable "node_group_min_size" {
+  type        = number
+  description = "Minimum number of nodes in the node group"
+}
+
+variable "node_group_max_size" {
+  type        = number
+  description = "Maximum number of nodes in the node group"
 }

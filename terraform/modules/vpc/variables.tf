@@ -1,10 +1,15 @@
-variable "vpc_cidr" {
-  description = "CIDR block for the VPC"
-  type        = string
-}
-
 variable "env" {
-  description = "Environment name (e.g. dev, nonprod, prod)"
-  type        = string
+  type = string
 }
 
+variable "vpc_cidr" {
+  type = string
+}
+
+variable "public_subnet_count" {
+  type = number
+}
+
+variable "private_subnet_count" {
+  type = number
+}

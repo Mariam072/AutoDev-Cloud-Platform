@@ -6,6 +6,6 @@ output "cluster_endpoint" {
   value = module.eks.cluster_endpoint
 }
 
-output "cluster_oidc_provider" {
-  value = module.eks.oidc_provider
+output "cluster_security_group_id" {
+  value = module.eks.cluster_primary_security_group_id
 }
