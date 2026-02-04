@@ -79,6 +79,14 @@ stages:
             -var-file="$(TF_VAR_FILE)" \
             -out=tfplan
 
+    # 🔥 IMPORTANT: Publish tfplan
+    - task: PublishPipelineArtifact@1
+      displayName: Publish Terraform Plan
+      condition: eq('${{ parameters.destroy }}', false)
+      inputs:
+        targetPath: $(TF_DIR)/tfplan
+        artifact: tfplan
+
 # ======================
 # Manual Approval Stage
 # ======================
@@ -88,7 +96,6 @@ stages:
   condition: eq('${{ parameters.destroy }}', false)
   jobs:
   - job: Approval
-    displayName: Approve Terraform Apply
     pool: server
     steps:
     - task: ManualValidation@0
@@ -116,6 +123,13 @@ stages:
       inputs:
         terraformVersion: latest
 
+    # 🔥 Download tfplan
+    - task: DownloadPipelineArtifact@2
+      displayName: Download Terraform Plan
+      inputs:
+        artifact: tfplan
+        path: $(TF_DIR)
+
     - task: AWSShellScript@1
       displayName: Terraform Apply
       inputs:
@@ -129,7 +143,7 @@ stages:
 
           terraform workspace select ${{ parameters.env }}
 
-          terraform apply tfplan
+          terraform apply -auto-approve tfplan
 
 # ======================
 # Destroy Stage
