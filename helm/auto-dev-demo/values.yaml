@@ -1,8 +1,8 @@
 replicaCount: 1
 
 image:
-  repository: auto-dev-demo          # we'll load it into minikube
-  tag: "local"
+  repository: ""          # we'll load it into minikube
+  tag: ""
   pullPolicy: IfNotPresent
 
 service:
