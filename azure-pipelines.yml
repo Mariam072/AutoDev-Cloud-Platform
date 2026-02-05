@@ -50,9 +50,7 @@ stages:
         inlineScript: |
           set -euo pipefail
           cd $(TF_DIR)
-
           terraform init
-
           terraform workspace select ${{ parameters.env }} || \
           terraform workspace new ${{ parameters.env }}
 
@@ -79,7 +77,6 @@ stages:
             -var-file="$(TF_VAR_FILE)" \
             -out=tfplan
 
-    # 🔥 IMPORTANT: Publish tfplan
     - task: PublishPipelineArtifact@1
       displayName: Publish Terraform Plan
       condition: eq('${{ parameters.destroy }}', false)
@@ -109,7 +106,7 @@ stages:
 # ======================
 # Terraform Apply Stage
 # ======================
-- stage: Apply
+- stage: ApplyInfra
   displayName: Terraform Apply
   dependsOn: Approval
   condition: eq('${{ parameters.destroy }}', false)
@@ -123,7 +120,6 @@ stages:
       inputs:
         terraformVersion: latest
 
-    # 🔥 Download tfplan
     - task: DownloadPipelineArtifact@2
       displayName: Download Terraform Plan
       inputs:
@@ -138,12 +134,61 @@ stages:
         scriptType: inline
         inlineScript: |
           cd $(TF_DIR)
-
           terraform init
-
           terraform workspace select ${{ parameters.env }}
-
           terraform apply -auto-approve tfplan
+
+# ======================
+# Helm Tools Stage (kubectl + Helm + ingress-nginx)
+# ======================
+- stage: HelmTools
+  displayName: Install Helm & Ingress
+  dependsOn: ApplyInfra
+  jobs:
+  - job: HelmInstall
+    steps:
+    - checkout: self
+
+    # 1️⃣ Install kubectl
+    - task: Bash@3
+      displayName: Install kubectl
+      inputs:
+        targetType: 'inline'
+        script: |
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/
+          kubectl version --client
+
+    # 2️⃣ Update kubeconfig
+    - task: Bash@3
+      displayName: Configure kubeconfig
+      inputs:
+        targetType: 'inline'
+        script: |
+          aws eks --region $(AWS_REGION) update-kubeconfig --name $(terraform output -raw cluster_name) --profile $(AWS_SERVICE_CONNECTION)
+          kubectl get nodes
+
+    # 3️⃣ Install Helm
+    - task: Bash@3
+      displayName: Install Helm
+      inputs:
+        targetType: 'inline'
+        script: |
+          curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+          helm version
+
+    # 4️⃣ Add repo and install ingress-nginx
+    - task: Bash@3
+      displayName: Install Ingress NGINX
+      inputs:
+        targetType: 'inline'
+        script: |
+          helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+          helm repo update
+          helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx --namespace ingress-nginx --create-namespace
+          kubectl get pods -n ingress-nginx
+
 
 # ======================
 # Destroy Stage
