@@ -40,10 +40,19 @@ module "ecr" {
 #################################
 module "cognito" {
   source = "./modules/cognito"
-
   env    = var.env
-  region = var.aws_region
+  
 }
+#################################
+# nlb
+#################################
+module "nlb" {
+  source           = "./modules/nlb"
+  env              = var.env
+  vpc_id           = module.vpc.vpc_id
+  private_subnets  = module.vpc.private_subnet_ids
+}
+
 
 #################################
 # API Gateway + VPC Link
@@ -51,12 +60,12 @@ module "cognito" {
 module "api_gateway" {
   source = "./modules/api_gateway"
 
-  env                 = var.env
-  region              = var.aws_region
-
-  vpc_id              = module.vpc.vpc_id
-  private_subnets     = module.vpc.private_subnet_ids
-
-  user_pool_id        = module.cognito.user_pool_id
-  user_pool_client_id = module.cognito.user_pool_client_id
+  env                  = var.env
+  region               = var.aws_region
+  user_pool_id         = module.cognito.user_pool_id
+  user_pool_client_id  = module.cognito.user_pool_client_id
+  vpc_link_id          = module.api_gateway.vpc_link_id
+  nlb_listener_arn     = module.nlb.listener_arn
+  private_subnets      = module.vpc.private_subnet_ids
+  vpc_id               = module.vpc.vpc_id      
 }

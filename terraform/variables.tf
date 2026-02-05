@@ -53,3 +53,17 @@ variable "node_group_max_size" {
   type        = number
   description = "Maximum number of nodes in the node group"
 }
+
+
+# Optional: if you want custom ports
+variable "nlb_listener_port" {
+  type    = number
+  default = 80
+  description = "Port for the NLB listener"
+}
+
+variable "nlb_target_port" {
+  type    = number
+  default = 80
+  description = "Port for the NLB target group"
+}

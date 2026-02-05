@@ -14,10 +14,16 @@ variable "user_pool_client_id" {
   type = string
 }
 
-variable "private_subnets" {
-  type = list(string)
+variable "vpc_link_id" {
+  type = string
 }
 
-variable "vpc_id" {
+variable "nlb_listener_arn" {
   type = string
+}
+variable "vpc_id" {
+  
+}
+variable "private_subnets" {
+  
 }
