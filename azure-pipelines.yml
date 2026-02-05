@@ -21,12 +21,9 @@ variables:
   AWS_SERVICE_CONNECTION: mero
   AWS_REGION: eu-west-1
   CLUSTER_NAME: prod-eks-cluster
-  HELM_RELEASE_INGRESS: ingress-nginx
 
 pool:
   vmImage: ubuntu-latest
-
-stages:
 
 # ======================
 # Terraform Plan Stage
@@ -114,20 +111,17 @@ stages:
     steps:
     - checkout: self
 
-    # Install Terraform
     - task: TerraformInstaller@1
       displayName: Install Terraform
       inputs:
         terraformVersion: latest
 
-    # Download tfplan
     - task: DownloadPipelineArtifact@2
       displayName: Download Terraform Plan
       inputs:
         artifact: tfplan
         path: $(TF_DIR)
 
-    # Apply Terraform
     - task: AWSShellScript@1
       displayName: Terraform Apply
       inputs:
@@ -140,36 +134,44 @@ stages:
           terraform workspace select ${{ parameters.env }}
           terraform apply -auto-approve tfplan
 
-    # Install kubectl
-    - task: KubectlInstaller@0
-      displayName: Install kubectl
-      inputs:
-        versionSpec: 'latest'
+# ======================
+# Kubernetes Setup Stage
+# ======================
+- stage: KubernetesSetup
+  displayName: Kubernetes Setup (Helm + Ingress)
+  dependsOn: Apply
+  condition: eq('${{ parameters.destroy }}', false)
+  jobs:
+  - job: HelmIngress
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - checkout: self
 
-    # Configure kubeconfig
     - task: AWSShellScript@1
-      displayName: Configure kubeconfig
+      displayName: Configure kubeconfig & Install Helm ingress-nginx
       inputs:
         awsCredentials: $(AWS_SERVICE_CONNECTION)
         regionName: $(AWS_REGION)
         scriptType: inline
         inlineScript: |
+          set -euo pipefail
+
+          echo "🔹 Generating kubeconfig..."
           aws eks --region $(AWS_REGION) update-kubeconfig --name $(CLUSTER_NAME)
 
-    # Add Helm repo for ingress-nginx
-    - task: HelmInstaller@1
-      displayName: Install Helm
-      inputs:
-        helmVersionToInstall: 'latest'
+          echo "🔹 Installing Helm if not present..."
+          if ! command -v helm &> /dev/null
+          then
+            curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+          fi
 
-    - task: AWSShellScript@1
-      displayName: Helm install ingress-nginx
-      inputs:
-        scriptType: inline
-        inlineScript: |
+          echo "🔹 Adding ingress-nginx repo..."
           helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
           helm repo update
-          helm upgrade --install $(HELM_RELEASE_INGRESS) ingress-nginx/ingress-nginx \
+
+          echo "🔹 Installing ingress-nginx..."
+          helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
             --namespace ingress-nginx --create-namespace
 
 # ======================
