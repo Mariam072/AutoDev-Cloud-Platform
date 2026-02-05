@@ -7,7 +7,8 @@ module "eks" {
 
   vpc_id     = var.vpc_id
   subnet_ids = var.private_subnets
-
+  cluster_endpoint_private_access = true
+  cluster_endpoint_public_access  = true
   eks_managed_node_groups = {
     default = {
       instance_types = [var.node_group_instance_type]
