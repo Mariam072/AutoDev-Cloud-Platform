@@ -20,10 +20,12 @@ variables:
   TF_VAR_FILE: '${{ parameters.env }}.tfvars'
   AWS_SERVICE_CONNECTION: mero
   AWS_REGION: eu-west-1
-  CLUSTER_NAME: prod-eks-cluster
+  CLUSTER_NAME: "prod-eks-cluster"
 
 pool:
   vmImage: ubuntu-latest
+
+stages:
 
 # ======================
 # Terraform Plan Stage
@@ -137,19 +139,17 @@ pool:
 # ======================
 # Kubernetes Setup Stage
 # ======================
-- stage: KubernetesSetup
-  displayName: Kubernetes Setup (Helm + Ingress)
+- stage: Kubernetes
+  displayName: Kubernetes Setup (kubectl + helm + ingress)
   dependsOn: Apply
-  condition: eq('${{ parameters.destroy }}', false)
   jobs:
-  - job: HelmIngress
-    pool:
-      vmImage: ubuntu-latest
+  - job: Setup
     steps:
     - checkout: self
 
+    # Install kubectl & helm
     - task: AWSShellScript@1
-      displayName: Configure kubeconfig & Install Helm ingress-nginx
+      displayName: Install kubectl & helm
       inputs:
         awsCredentials: $(AWS_SERVICE_CONNECTION)
         regionName: $(AWS_REGION)
@@ -157,22 +157,28 @@ pool:
         inlineScript: |
           set -euo pipefail
 
-          echo "🔹 Generating kubeconfig..."
-          aws eks --region $(AWS_REGION) update-kubeconfig --name $(CLUSTER_NAME)
+          # install kubectl
+          if ! command -v kubectl &> /dev/null; then
+            curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+            chmod +x kubectl
+            sudo mv kubectl /usr/local/bin/
+          fi
 
-          echo "🔹 Installing Helm if not present..."
-          if ! command -v helm &> /dev/null
-          then
+          # install helm
+          if ! command -v helm &> /dev/null; then
             curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
           fi
 
-          echo "🔹 Adding ingress-nginx repo..."
+          # configure kubeconfig
+          aws eks --region $(AWS_REGION) update-kubeconfig --name $(CLUSTER_NAME) --profile $(AWS_SERVICE_CONNECTION)
+
+          # add ingress-nginx repo
           helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
           helm repo update
 
-          echo "🔹 Installing ingress-nginx..."
-          helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
-            --namespace ingress-nginx --create-namespace
+          # install ingress-nginx
+          kubectl create namespace ingress-nginx || true
+          helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx -n ingress-nginx
 
 # ======================
 # Destroy Stage
