@@ -170,7 +170,8 @@ stages:
           fi
 
           # configure kubeconfig
-          aws eks --region $(AWS_REGION) update-kubeconfig --name $(CLUSTER_NAME) --profile $(AWS_SERVICE_CONNECTION)
+          aws eks --region $(AWS_REGION) update-kubeconfig --name $(CLUSTER_NAME)
+
 
           # add ingress-nginx repo
           helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
