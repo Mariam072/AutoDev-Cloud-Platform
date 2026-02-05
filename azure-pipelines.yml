@@ -137,49 +137,70 @@ stages:
           terraform apply -auto-approve tfplan
 
 # ======================
-# Kubernetes Setup Stage
+# Kubernetes Tools & Ingress Stage
 # ======================
 - stage: Kubernetes
-  displayName: Kubernetes Setup (kubectl + helm + ingress)
+  displayName: "Install kubectl, Helm & Ingress"
   dependsOn: Apply
+  condition: eq('${{ parameters.destroy }}', false)
   jobs:
-  - job: Setup
+  - job: Kubernetes
+    displayName: "Kubernetes Setup"
+    pool:
+      vmImage: ubuntu-latest
     steps:
     - checkout: self
 
-    # Install kubectl & helm
+    # Install kubectl & Helm
     - task: AWSShellScript@1
-      displayName: Install kubectl & helm
+      displayName: "Install kubectl & Helm"
       inputs:
         awsCredentials: $(AWS_SERVICE_CONNECTION)
         regionName: $(AWS_REGION)
         scriptType: inline
         inlineScript: |
           set -euo pipefail
+          echo "Installing kubectl..."
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/
 
-          # install kubectl
-          if ! command -v kubectl &> /dev/null; then
-            curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-            chmod +x kubectl
-            sudo mv kubectl /usr/local/bin/
-          fi
+          echo "Installing Helm..."
+          curl -fsSL https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
 
-          # install helm
-          if ! command -v helm &> /dev/null; then
-            curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
-          fi
+    # Configure kubeconfig for EKS
+    - task: AWSShellScript@1
+      displayName: "Configure kubeconfig for EKS"
+      inputs:
+        awsCredentials: $(AWS_SERVICE_CONNECTION)
+        regionName: $(AWS_REGION)
+        scriptType: inline
+        inlineScript: |
+          set -euo pipefail
+          echo "Updating kubeconfig for cluster ${{ parameters.env }}..."
+          aws eks --region $(AWS_REGION) update-kubeconfig --name $(cluster_name)
 
-          # configure kubeconfig
-          aws eks --region $(AWS_REGION) update-kubeconfig --name $(CLUSTER_NAME)
+          echo "Testing kubectl..."
+          kubectl get nodes
 
-
-          # add ingress-nginx repo
+    # Install ingress-nginx via Helm
+    - task: AWSShellScript@1
+      displayName: "Install ingress-nginx"
+      inputs:
+        awsCredentials: $(AWS_SERVICE_CONNECTION)
+        regionName: $(AWS_REGION)
+        scriptType: inline
+        inlineScript: |
+          set -euo pipefail
+          echo "Adding ingress-nginx repo..."
           helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
           helm repo update
 
-          # install ingress-nginx
-          kubectl create namespace ingress-nginx || true
-          helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx -n ingress-nginx
+          echo "Installing ingress-nginx..."
+          helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
+            --namespace ingress-nginx --create-namespace \
+            --set controller.publishService.enabled=true
+
 
 # ======================
 # Destroy Stage
