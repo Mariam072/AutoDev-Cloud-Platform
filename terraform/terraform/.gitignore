@@ -1,0 +1,39 @@
+# Terraform files
+.terraform/
+*.tfstate
+*.tfstate.*
+terraform.tfstate
+.terraform.tfstate.lock.info
+crash.log
+
+# Sensitive files
+*.pem
+*.key
+*.cert
+*.env
+*.secret
+secrets/
+credentials/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Local files
+*.log
+*.tmp
+
+# Node.js dependencies
+/app/node_modules/
+
+# Env files
+/app/.env
+
+# Logs
+/app/logs/

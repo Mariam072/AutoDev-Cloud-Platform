@@ -66,10 +66,4 @@ variable "nlb_target_port" {
   type    = number
   default = 80
   description = "Port for the NLB target group"
-<<<<<<< HEAD
 }
-
-
-=======
-}
->>>>>>> ea8b159 (infra update)

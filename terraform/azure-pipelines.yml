@@ -1,0 +1,209 @@
+trigger: none
+pr: none
+
+parameters:
+  - name: env
+    type: string
+    default: prod
+    values:
+      - nonprod
+      - prod
+
+  - name: destroy
+    type: boolean
+    default: false
+
+variables:
+  TF_DIR: terraform
+  TF_VAR_FILE: '${{ parameters.env }}.tfvars'
+  AWS_SERVICE_CONNECTION: mero
+  AWS_REGION: eu-west-1
+
+pool:
+  vmImage: ubuntu-latest
+
+stages:
+
+# =========================
+# 1️⃣ Terraform Plan
+# =========================
+- stage: Plan
+  condition: eq('${{ parameters.destroy }}', 'false')
+  jobs:
+  - job: Plan
+    steps:
+    - checkout: self
+
+    - task: TerraformInstaller@1
+      inputs:
+        terraformVersion: latest
+
+    - task: AWSShellScript@1
+      displayName: Terraform Init & Plan
+      inputs:
+        awsCredentials: $(AWS_SERVICE_CONNECTION)
+        regionName: $(AWS_REGION)
+        scriptType: inline
+        inlineScript: |
+          set -euo pipefail
+          cd $(TF_DIR)
+
+          terraform init
+
+          terraform workspace select ${{ parameters.env }} || \
+          terraform workspace new ${{ parameters.env }}
+
+          terraform plan \
+            -var-file="$(TF_VAR_FILE)" \
+            -out=tfplan
+
+    - task: PublishPipelineArtifact@1
+      inputs:
+        targetPath: $(TF_DIR)/tfplan
+        artifact: tfplan
+
+
+# =========================
+# 2️⃣ Terraform Apply
+# =========================
+- stage: Apply
+  dependsOn: Plan
+  condition: eq('${{ parameters.destroy }}', 'false')
+  jobs:
+  - job: Apply
+    steps:
+    - checkout: self
+
+    - task: TerraformInstaller@1
+      inputs:
+        terraformVersion: latest
+
+    - task: DownloadPipelineArtifact@2
+      inputs:
+        artifact: tfplan
+        path: $(TF_DIR)
+
+    - task: AWSShellScript@1
+      displayName: Terraform Apply
+      inputs:
+        awsCredentials: $(AWS_SERVICE_CONNECTION)
+        regionName: $(AWS_REGION)
+        scriptType: inline
+        inlineScript: |
+          set -euo pipefail
+          cd $(TF_DIR)
+
+          terraform init
+          terraform workspace select ${{ parameters.env }}
+
+          terraform apply -auto-approve tfplan
+
+
+# =========================
+# 3️⃣ Kubernetes Setup
+# =========================
+- stage: Kubernetes_Setup
+  dependsOn: Apply
+  condition: eq('${{ parameters.destroy }}', 'false')
+  jobs:
+  - job: Setup
+    steps:
+    - checkout: self
+
+    - task: TerraformInstaller@1
+      inputs:
+        terraformVersion: latest
+
+    - task: KubectlInstaller@0
+      inputs:
+        kubectlVersion: latest
+
+    - task: HelmInstaller@1
+      inputs:
+        helmVersionToInstall: latest
+
+    - task: AWSShellScript@1
+      displayName: Configure kubeconfig
+      inputs:
+        awsCredentials: $(AWS_SERVICE_CONNECTION)
+        regionName: $(AWS_REGION)
+        scriptType: inline
+        inlineScript: |
+          set -euo pipefail
+          cd $(TF_DIR)
+
+          terraform init
+          terraform workspace select ${{ parameters.env }}
+
+          CLUSTER_NAME=$(terraform output -raw cluster_name)
+
+          echo "Updating kubeconfig for cluster: $CLUSTER_NAME"
+          aws eks update-kubeconfig \
+            --name "$CLUSTER_NAME" \
+            --region "$(AWS_REGION)"
+
+          kubectl get nodes
+
+    - task: AWSShellScript@1
+      displayName: Export AWS Credentials
+      inputs:
+        awsCredentials: $(AWS_SERVICE_CONNECTION)
+        regionName: $(AWS_REGION)
+        scriptType: inline
+        inlineScript: |
+          echo "##vso[task.setvariable variable=AWS_ACCESS_KEY_ID;isSecret=true]$AWS_ACCESS_KEY_ID"
+          echo "##vso[task.setvariable variable=AWS_SECRET_ACCESS_KEY;isSecret=true]$AWS_SECRET_ACCESS_KEY"
+          echo "##vso[task.setvariable variable=AWS_SESSION_TOKEN;isSecret=true]$AWS_SESSION_TOKEN"
+
+    - task: HelmDeploy@0
+      displayName: Install Ingress Nginx
+      inputs:
+        connectionType: None
+        command: upgrade
+        chartType: Name
+        chartName: ingress-nginx
+        releaseName: ingress-nginx
+        namespace: ingress-nginx
+        install: true
+        arguments: >
+          --repo https://kubernetes.github.io/ingress-nginx
+          --create-namespace
+          --wait
+          --timeout 5m
+      env:
+        AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
+        AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
+        AWS_SESSION_TOKEN: $(AWS_SESSION_TOKEN)
+        AWS_REGION: $(AWS_REGION)
+
+
+# =========================
+# 4️⃣ Destroy Stage
+# =========================
+- stage: Destroy
+  condition: eq('${{ parameters.destroy }}', 'true')
+  jobs:
+  - job: Destroy
+    steps:
+    - checkout: self
+
+    - task: TerraformInstaller@1
+      inputs:
+        terraformVersion: latest
+
+    - task: AWSShellScript@1
+      displayName: Terraform Destroy
+      inputs:
+        awsCredentials: $(AWS_SERVICE_CONNECTION)
+        regionName: $(AWS_REGION)
+        scriptType: inline
+        inlineScript: |
+          set -euo pipefail
+          cd $(TF_DIR)
+
+          terraform init
+          terraform workspace select ${{ parameters.env }}
+
+          terraform destroy \
+            -var-file="$(TF_VAR_FILE)" \
+            -auto-approve

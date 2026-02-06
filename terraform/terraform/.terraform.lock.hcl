@@ -24,8 +24,6 @@ provider "registry.terraform.io/hashicorp/aws" {
   ]
 }
 
-<<<<<<< HEAD
-=======
 provider "registry.terraform.io/hashicorp/cloudinit" {
   version     = "2.3.7"
   constraints = ">= 2.0.0"
@@ -86,7 +84,6 @@ provider "registry.terraform.io/hashicorp/time" {
   ]
 }
 
->>>>>>> ea8b159 (infra update)
 provider "registry.terraform.io/hashicorp/tls" {
   version     = "4.2.1"
   constraints = ">= 3.0.0"

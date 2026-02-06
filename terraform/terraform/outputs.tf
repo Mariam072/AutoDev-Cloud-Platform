@@ -1,5 +1,3 @@
-<<<<<<< HEAD
-=======
 #output "vpc_id" {
 #  value = module.vpc.vpc_id
 #}
@@ -31,20 +29,10 @@ output "vpc_link_id" {
   value = module.api_gateway.vpc_link_id
 }
 
->>>>>>> ea8b159 (infra update)
 output "cluster_name" {
   value = module.eks.cluster_name
 }
 
-<<<<<<< HEAD
-output "cluster_endpoint" {
-  value = module.eks.cluster_endpoint
-}
-
-output "irsa_role_arn" {
-  value = module.irsa.irsa_role_arn
-=======
 output "ecr_repository_url" {
   value = module.ecr.repository_url
->>>>>>> ea8b159 (infra update)
 }
