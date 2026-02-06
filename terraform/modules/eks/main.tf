@@ -1,20 +1,41 @@
-module "eks" {
-  source  = "terraform-aws-modules/eks/aws"
-  version = "~> 20.0"
+resource "aws_security_group" "eks_cluster_sg" {
+  name   = "${var.cluster_name}-cluster-sg"
+  vpc_id = var.vpc_id
+}
 
-  cluster_name    = var.cluster_name
-  cluster_version = "1.32"
+resource "aws_security_group" "eks_node_sg" {
+  name   = "${var.cluster_name}-node-sg"
+  vpc_id = var.vpc_id
+}
 
-  vpc_id     = var.vpc_id
-  subnet_ids = var.private_subnets
-  #cluster_endpoint_private_access = true
-  cluster_endpoint_public_access  = true
-  eks_managed_node_groups = {
-    default = {
-      instance_types = [var.node_group_instance_type]
-      desired_size   = var.node_group_desired_size
-      min_size       = var.node_group_min_size
-      max_size       = var.node_group_max_size
-    }
+resource "aws_eks_cluster" "this" {
+  name     = var.cluster_name
+  role_arn = var.cluster_role_arn
+  version  = "1.29"
+
+  vpc_config {
+    subnet_ids              = var.private_subnets
+    security_group_ids      = [aws_security_group.eks_cluster_sg.id]
+    endpoint_private_access = true
+    endpoint_public_access  = true
   }
+
+  depends_on = [
+    var.cluster_role_arn
+  ]
+}
+
+resource "aws_eks_node_group" "default" {
+  cluster_name    = aws_eks_cluster.this.name
+  node_group_name = "${var.env}-node-group"
+  node_role_arn   = var.node_role_arn
+  subnet_ids      = var.private_subnets
+
+  scaling_config {
+    desired_size = var.node_group_desired_size
+    min_size     = var.node_group_min_size
+    max_size     = var.node_group_max_size
+  }
+
+  instance_types = [var.node_group_instance_type]
 }
