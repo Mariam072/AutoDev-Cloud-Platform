@@ -137,11 +137,7 @@ stages:
 
           CLUSTER_NAME=$(terraform output -raw cluster_name)
 
-          echo "Updating kubeconfig for cluster: $CLUSTER_NAME"
-          aws eks update-kubeconfig \
-            --name "$CLUSTER_NAME" \
-            --region "$(AWS_REGION)"
-
+          echo "Updating kubeconfig for cluster: $CLUSTER_NAME" && aws eks update-kubeconfig --name "$CLUSTER_NAME" --region "$(AWS_REGION)"
           kubectl get nodes
 
     - task: AWSShellScript@1
