@@ -75,18 +75,6 @@ module "nlb" {
 }
 
 
-}
-#################################
-# nlb
-#################################
-module "nlb" {
-  source           = "./modules/nlb"
-  env              = var.env
-  vpc_id           = module.vpc.vpc_id
-  private_subnets  = module.vpc.private_subnet_ids
-}
-
-
 #################################
 # API Gateway + VPC Link
 #################################

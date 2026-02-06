@@ -14,9 +14,6 @@ variable "user_pool_client_id" {
   type = string
 }
 
-variable "vpc_link_id" {
-  type = string
-}
 
 variable "nlb_listener_arn" {
   type = string
