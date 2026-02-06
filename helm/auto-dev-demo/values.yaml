@@ -1,0 +1,20 @@
+replicaCount: 1
+
+image:
+  repository: ""          # we'll load it into minikube
+  tag: ""
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 3000
+
+ingress:
+  enabled: true
+  className: "nginx"
+  host: demo.local                   # we'll map this in /etc/hosts
+  path: /
+  pathType: Prefix
+
+mongoUri: ""                         # leave empty or override with --set
