@@ -163,7 +163,13 @@ jobs:
 
       - name: Install Terraform
         uses: hashicorp/setup-terraform@v2
-
+      - name: Delete Helm Releases
+        run: |
+          set -euo pipefail
+          helm uninstall auto-dev-demo -n demo || true
+          helm uninstall ingress-nginx -n ingress-nginx || true
+          echo "Waiting 60s for AWS to remove LoadBalancer resources..."
+          sleep 60
       - name: Terraform Destroy
         run: |
           cd $TF_DIR
