@@ -79,7 +79,8 @@ jobs:
           terraform init -input=false
           terraform workspace select ${{ github.event.inputs.env }}
 
-          CLUSTER_NAME=$(terraform output -raw cluster_name)
+          CLUSTER_NAME=$(terraform output -raw cluster_name | tr -d '\n' | xargs)
+
 
           echo "Cluster name is: $CLUSTER_NAME"
 
