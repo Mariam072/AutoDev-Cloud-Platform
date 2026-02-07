@@ -73,10 +73,19 @@ jobs:
       # =========================
       - name: Configure kubeconfig
         run: |
+          set -euo pipefail
           cd $TF_DIR
+
+          terraform init -input=false
+          terraform workspace select ${{ github.event.inputs.env }}
+
           CLUSTER_NAME=$(terraform output -raw cluster_name)
+
+          echo "Cluster name is: $CLUSTER_NAME"
+
           aws eks update-kubeconfig --name "$CLUSTER_NAME" --region "$AWS_REGION"
           kubectl get nodes
+
 
       # =========================
       # Install Ingress
