@@ -162,11 +162,11 @@ stages:
         namespace: ingress-nginx
         install: true
         arguments: >
-        --repo https://kubernetes.github.io/ingress-nginx
-        --create-namespace
-        --set controller.ingressClassResource.defaultTLSSecret=""
-        --wait
-        --timeout 5m
+          --repo https://kubernetes.github.io/ingress-nginx
+          --create-namespace
+          --set controller.ingressClassResource.defaultTLSSecret=""
+          --wait
+          --timeout 5m
       env:
         AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
         AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
