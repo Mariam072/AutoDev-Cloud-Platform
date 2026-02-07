@@ -22,13 +22,12 @@ variables:
 pool:
   vmImage: ubuntu-latest
 
-stages:
-
 # =========================
 # 1️⃣ Terraform Plan
 # =========================
+stages:
 - stage: Plan
-  condition: eq('${{ parameters.destroy }}', 'false')
+  condition: eq('${{ parameters.destroy }}', false)
   jobs:
   - job: Plan
     steps:
@@ -48,27 +47,21 @@ stages:
           set -euo pipefail
           cd $(TF_DIR)
 
-          terraform init
-
-          terraform workspace select ${{ parameters.env }} || \
-          terraform workspace new ${{ parameters.env }}
-
-          terraform plan \
-            -var-file="$(TF_VAR_FILE)" \
-            -out=tfplan
+          terraform init -input=false
+          terraform workspace select ${{ parameters.env }} || terraform workspace new ${{ parameters.env }}
+          terraform plan -var-file="$(TF_VAR_FILE)" -out=tfplan
 
     - task: PublishPipelineArtifact@1
       inputs:
         targetPath: $(TF_DIR)/tfplan
         artifact: tfplan
 
-
 # =========================
 # 2️⃣ Terraform Apply
 # =========================
 - stage: Apply
   dependsOn: Plan
-  condition: eq('${{ parameters.destroy }}', 'false')
+  condition: eq('${{ parameters.destroy }}', false)
   jobs:
   - job: Apply
     steps:
@@ -92,21 +85,18 @@ stages:
         inlineScript: |
           set -euo pipefail
           cd $(TF_DIR)
-
-          terraform init
+          terraform init -input=false
           terraform workspace select ${{ parameters.env }}
-
           terraform apply -auto-approve tfplan
 
-
 # =========================
-# 3️⃣ Kubernetes Setup
+# 3️⃣ Kubernetes + Ingress + Deploy
 # =========================
-- stage: Kubernetes_Setup
+- stage: Kubernetes
   dependsOn: Apply
-  condition: eq('${{ parameters.destroy }}', 'false')
+  condition: eq('${{ parameters.destroy }}', false)
   jobs:
-  - job: Setup
+  - job: Deploy
     steps:
     - checkout: self
 
@@ -131,13 +121,10 @@ stages:
         inlineScript: |
           set -euo pipefail
           cd $(TF_DIR)
-
-          terraform init
+          terraform init -input=false
           terraform workspace select ${{ parameters.env }}
-
           CLUSTER_NAME=$(terraform output -raw cluster_name)
-
-          echo "Updating kubeconfig for cluster: $CLUSTER_NAME" && aws eks update-kubeconfig --name "$CLUSTER_NAME" --region "$(AWS_REGION)"
+          aws eks update-kubeconfig --name "$CLUSTER_NAME" --region "$(AWS_REGION)"
           kubectl get nodes
 
     - task: AWSShellScript@1
@@ -173,12 +160,46 @@ stages:
         AWS_SESSION_TOKEN: $(AWS_SESSION_TOKEN)
         AWS_REGION: $(AWS_REGION)
 
+    - task: AWSShellScript@1
+      displayName: Build, Push & Deploy App
+      inputs:
+        awsCredentials: $(AWS_SERVICE_CONNECTION)
+        regionName: $(AWS_REGION)
+        scriptType: inline
+        inlineScript: |
+          set -euo pipefail
+          cd $(TF_DIR)
+          terraform init -input=false
+          terraform workspace select ${{ parameters.env }}
+          ECR_URL=$(terraform output -raw ecr_repository_url)
+          CLUSTER_NAME=$(terraform output -raw cluster_name)
+          cd ..
+
+          IMAGE_TAG=$(Build.BuildId)
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          aws ecr get-login-password --region $(AWS_REGION) | docker login --username AWS --password-stdin $ACCOUNT_ID.dkr.ecr.$(AWS_REGION).amazonaws.com
+
+          docker build -t app:$IMAGE_TAG app
+          docker tag app:$IMAGE_TAG $ECR_URL:$IMAGE_TAG
+          docker push $ECR_URL:$IMAGE_TAG
+
+          aws eks update-kubeconfig --name "$CLUSTER_NAME" --region "$(AWS_REGION)"
+
+          helm upgrade --install auto-dev-demo helm/auto-dev-demo \
+            --namespace demo \
+            --create-namespace \
+            --set image.repository=$ECR_URL \
+            --set image.tag=$IMAGE_TAG \
+            --wait
+
+          kubectl get pods -n demo
+          kubectl get ingress -n demo
 
 # =========================
-# 4️⃣ Destroy Stage
+# 4️⃣ Destroy
 # =========================
 - stage: Destroy
-  condition: eq('${{ parameters.destroy }}', 'true')
+  condition: eq('${{ parameters.destroy }}', true)
   jobs:
   - job: Destroy
     steps:
@@ -197,10 +218,6 @@ stages:
         inlineScript: |
           set -euo pipefail
           cd $(TF_DIR)
-
-          terraform init
+          terraform init -input=false
           terraform workspace select ${{ parameters.env }}
-
-          terraform destroy \
-            -var-file="$(TF_VAR_FILE)" \
-            -auto-approve
+          terraform destroy -var-file="$(TF_VAR_FILE)" -auto-approve

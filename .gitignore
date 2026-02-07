@@ -6,7 +6,7 @@
 
 # Terraform lock
 .terraform.lock.hcl
-
+.azure-pipelines.yml.swp
 
 # OS
 .DS_Store
