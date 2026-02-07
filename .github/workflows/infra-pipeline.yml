@@ -147,7 +147,7 @@ jobs:
           kubectl get ingress -n demo
 
 
- destroy:
+destroy:
   if: ${{ github.event.inputs.destroy == 'true' }}
   runs-on: ubuntu-latest
 
@@ -183,6 +183,8 @@ jobs:
         terraform workspace select ${{ github.event.inputs.env }}
 
         CLUSTER_NAME=$(terraform output -raw cluster_name)
+        echo "Cluster name: $CLUSTER_NAME"
+
         aws eks update-kubeconfig --name "$CLUSTER_NAME" --region "$AWS_REGION"
 
     # =========================
@@ -190,8 +192,10 @@ jobs:
     # =========================
     - name: Delete Helm Releases
       run: |
+        set -euo pipefail
         helm uninstall auto-dev-demo -n demo || true
         helm uninstall ingress-nginx -n ingress-nginx || true
+        echo "Waiting 60s for AWS to remove LoadBalancer resources..."
         sleep 60
 
     # =========================
@@ -199,8 +203,10 @@ jobs:
     # =========================
     - name: Terraform Destroy
       run: |
+        set -euo pipefail
         cd $TF_DIR
         terraform destroy \
           -var-file="${{ github.event.inputs.env }}.tfvars" \
           -auto-approve
+
 
