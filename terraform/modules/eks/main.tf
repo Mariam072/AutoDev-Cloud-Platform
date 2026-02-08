@@ -7,6 +7,10 @@ resource "aws_security_group" "eks_node_sg" {
   name   = "${var.cluster_name}-node-sg"
   vpc_id = var.vpc_id
 }
+resource "aws_security_group" "nlb_sg" {
+  name   = "${var.cluster_name}-node-sg"
+  vpc_id = var.vpc_id
+}
 
 # السماح للـ NLB بالوصول للـ NodePort
 resource "aws_security_group_rule" "allow_nlb_to_nodes" {
@@ -15,7 +19,7 @@ resource "aws_security_group_rule" "allow_nlb_to_nodes" {
   to_port                  = var.target_port
   protocol                 = "tcp"
   security_group_id        = aws_security_group.eks_node_sg.id
-  source_security_group_id = var.nlb_sg_id
+  source_security_group_id = aws_security_group.nlb_sg.id
 }
 
 resource "aws_eks_cluster" "this" {
