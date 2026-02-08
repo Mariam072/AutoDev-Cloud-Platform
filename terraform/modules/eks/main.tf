@@ -8,7 +8,7 @@ resource "aws_security_group" "eks_node_sg" {
   vpc_id = var.vpc_id
 }
 resource "aws_security_group" "nlb_sg" {
-  name   = "${var.cluster_name}-node-sg"
+  name   = "${var.cluster_name}-nlb-sg"
   vpc_id = var.vpc_id
 }
 
