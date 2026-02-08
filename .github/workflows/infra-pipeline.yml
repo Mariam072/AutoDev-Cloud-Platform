@@ -1,4 +1,4 @@
-name: CI-CD Terraform & Kubernetes
+name: INFRA - Terraform & Cluster Setup
 
 on:
   workflow_dispatch:
@@ -11,8 +11,9 @@ on:
         options:
           - nonprod
           - prod
+
       destroy:
-        description: 'Destroy resources?'
+        description: 'Destroy infrastructure?'
         required: true
         default: false
         type: boolean
@@ -23,14 +24,16 @@ env:
 
 jobs:
 
-  deploy:
+  # =========================
+  # 🟢 APPLY INFRA
+  # =========================
+  apply:
     if: ${{ github.event.inputs.destroy == 'false' }}
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
 
-      # ✅ Configure AWS once globally
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -38,19 +41,11 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Install Terraform
+      - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
-         terraform_wrapper: false
-      - name: Install kubectl
-        uses: azure/setup-kubectl@v3
+          terraform_wrapper: false
 
-      - name: Install Helm
-        uses: azure/setup-helm@v3
-
-      # =========================
-      # Terraform Plan + Apply
-      # =========================
       - name: Terraform Init
         run: |
           cd $TF_DIR
@@ -69,84 +64,49 @@ jobs:
             -var-file="${{ github.event.inputs.env }}.tfvars" \
             -auto-approve
 
-      # =========================
-      # Kubernetes Config
-      # =========================
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3
+
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+
       - name: Configure kubeconfig
         run: |
-          set -euo pipefail
           cd $TF_DIR
-
-          terraform init -input=false
           terraform workspace select ${{ github.event.inputs.env }}
+          CLUSTER_NAME=$(terraform output -raw cluster_name)
 
-          CLUSTER_NAME=$(terraform output -raw cluster_name | tr -d '\n' | xargs)
+          aws eks update-kubeconfig \
+            --name "$CLUSTER_NAME" \
+            --region "$AWS_REGION"
 
-
-          echo "Cluster name is: $CLUSTER_NAME"
-
-          aws eks update-kubeconfig --name "$CLUSTER_NAME" --region "$AWS_REGION"
           kubectl get nodes
 
-
-      # =========================
-      # Install Ingress
-      # =========================
       - name: Install Ingress Nginx
         run: |
           helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
           helm repo update
+
           helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
             --namespace ingress-nginx \
             --create-namespace \
             --set controller.service.type=LoadBalancer \
-            --wait --timeout 5m
+            --wait --timeout 10m
 
-      # =========================
-      # Build & Push Docker
-      # =========================
-      - name: Build & Push Docker Image
+      - name: Install Argo CD
         run: |
-          cd $TF_DIR
-          ECR_URL=$(terraform output -raw ecr_repository_url)
-          cd ..
+          helm repo add argo https://argoproj.github.io/argo-helm
+          helm repo update
 
-          IMAGE_TAG=${GITHUB_RUN_ID}
-          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-
-          aws ecr get-login-password --region $AWS_REGION | \
-          docker login --username AWS --password-stdin \
-          $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
-
-          docker build -t app:$IMAGE_TAG app
-          docker tag app:$IMAGE_TAG $ECR_URL:$IMAGE_TAG
-          docker push $ECR_URL:$IMAGE_TAG
-
-      # =========================
-      # Helm Deploy App
-      # =========================
-      - name: Deploy App via Helm
-        run: |
-          cd $TF_DIR
-          ECR_URL=$(terraform output -raw ecr_repository_url)
-          CLUSTER_NAME=$(terraform output -raw cluster_name)
-          cd ..
-
-          IMAGE_TAG=${GITHUB_RUN_ID}
-
-          aws eks update-kubeconfig --name "$CLUSTER_NAME" --region "$AWS_REGION"
-
-          helm upgrade --install auto-dev-demo helm/auto-dev-demo \
-            --namespace demo \
+          helm upgrade --install argocd argo/argo-cd \
+            --namespace argocd \
             --create-namespace \
-            --set image.repository=$ECR_URL \
-            --set image.tag=$IMAGE_TAG \
-            --wait
-
-          kubectl get pods -n demo
-          kubectl get ingress -n demo
+            --wait --timeout 10m
 
 
+  # =========================
+  # 🔴 DESTROY INFRA
+  # =========================
   destroy:
     if: ${{ github.event.inputs.destroy == 'true' }}
     runs-on: ubuntu-latest
@@ -161,20 +121,24 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Install Terraform
+      - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_wrapper: false
+
       - name: Delete Helm Releases
         run: |
-          set -euo pipefail
-          helm uninstall auto-dev-demo -n demo || true
+          helm uninstall argocd -n argocd || true
           helm uninstall ingress-nginx -n ingress-nginx || true
-          echo "Waiting 60s for AWS to remove LoadBalancer resources..."
+          echo "Waiting 60 seconds for LoadBalancer cleanup..."
           sleep 60
+
       - name: Terraform Destroy
         run: |
           cd $TF_DIR
           terraform init -input=false
           terraform workspace select ${{ github.event.inputs.env }}
+
           terraform destroy \
             -var-file="${{ github.event.inputs.env }}.tfvars" \
             -auto-approve
