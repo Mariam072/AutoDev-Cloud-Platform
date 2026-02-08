@@ -73,7 +73,6 @@ jobs:
       - name: Configure kubeconfig
         run: |
           cd $TF_DIR
-          terraform workspace select ${{ github.event.inputs.env }}
           CLUSTER_NAME=$(terraform output -raw cluster_name)
 
           aws eks update-kubeconfig \
@@ -82,6 +81,9 @@ jobs:
 
           kubectl get nodes
 
+      # =========================
+      # Install Ingress (NodePort)
+      # =========================
       - name: Install Ingress Nginx
         run: |
           helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
@@ -90,9 +92,14 @@ jobs:
           helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
             --namespace ingress-nginx \
             --create-namespace \
-            --set controller.service.type=LoadBalancer \
+            --set controller.service.type=NodePort \
+            --set controller.service.nodePorts.http=30080 \
+            --set controller.service.nodePorts.https=30443 \
             --wait --timeout 10m
 
+      # =========================
+      # Install Argo CD (Internal)
+      # =========================
       - name: Install Argo CD
         run: |
           helm repo add argo https://argoproj.github.io/argo-helm
@@ -101,49 +108,12 @@ jobs:
           helm upgrade --install argocd argo/argo-cd \
             --namespace argocd \
             --create-namespace \
-            #--wait --timeout 10m
+            --set server.service.type=ClusterIP \
+            --wait --timeout 10m
+
       - name: Verify platform tools
         run: |
           kubectl get pods -n ingress-nginx
+          kubectl get svc -n ingress-nginx
           kubectl get pods -n argocd
           kubectl get svc -n argocd
-
-
-  # =========================
-  # 🔴 DESTROY INFRA
-  # =========================
-  destroy:
-    if: ${{ github.event.inputs.destroy == 'true' }}
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2
-        with:
-          terraform_wrapper: false
-
-      - name: Delete Helm Releases
-        run: |
-          helm uninstall argocd -n argocd || true
-          helm uninstall ingress-nginx -n ingress-nginx || true
-          echo "Waiting 60 seconds for LoadBalancer cleanup..."
-          sleep 60
-
-      - name: Terraform Destroy
-        run: |
-          cd $TF_DIR
-          terraform init -input=false
-          terraform workspace select ${{ github.event.inputs.env }}
-
-          terraform destroy \
-            -var-file="${{ github.event.inputs.env }}.tfvars" \
-            -auto-approve
