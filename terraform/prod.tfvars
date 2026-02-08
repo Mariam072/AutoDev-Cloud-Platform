@@ -15,4 +15,4 @@ node_group_min_size      = 1
 node_group_max_size      = 2
 
 nlb_listener_port        = 80
-nlb_target_port          = 3000
+nlb_target_port          = 30080
