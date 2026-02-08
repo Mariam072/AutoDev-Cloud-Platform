@@ -9,4 +9,4 @@ variable "node_group_max_size" {}
 variable "cluster_role_arn" {}
 variable "node_role_arn" {}
 variable "target_port" {}
-variable "nlb_sg_id" {} # id of the NLB SG
+
