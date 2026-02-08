@@ -25,19 +25,38 @@ module "iam" {
 module "eks" {
   source = "./modules/eks"
 
-  env              = var.env
-  cluster_name     = var.cluster_name
-  vpc_id           = module.vpc.vpc_id
-  private_subnets  = module.vpc.private_subnet_ids
-
-  cluster_role_arn = module.iam.cluster_role_arn
-  node_role_arn    = module.iam.node_role_arn
-
+  env                     = var.env
+  cluster_name            = var.cluster_name
+  vpc_id                  = module.vpc.vpc_id
+  private_subnets         = module.vpc.private_subnet_ids
+  cluster_role_arn        = module.iam.cluster_role_arn
+  node_role_arn           = module.iam.node_role_arn
   node_group_instance_type = var.node_group_instance_type
   node_group_desired_size  = var.node_group_desired_size
   node_group_min_size      = var.node_group_min_size
   node_group_max_size      = var.node_group_max_size
+  target_port              = var.nlb_target_port
 }
+
+module "nlb" {
+  source          = "./modules/nlb"
+  env             = var.env
+  vpc_id          = module.vpc.vpc_id
+  private_subnets = module.vpc.private_subnet_ids
+  target_port     = var.nlb_target_port
+  listener_port   = var.nlb_listener_port
+
+  eks_cluster_name    = module.eks.cluster_name
+  eks_node_group_name = module.eks.node_group_name
+}
+
+# ربط الـ SG بين EKS و NLB
+module "eks_sg_rule" {
+  source = "./modules/eks"
+
+  nlb_sg_id = module.nlb.nlb_sg_id
+}
+
 
 module "irsa" {
   source        = "./modules/irsa"
@@ -64,15 +83,7 @@ module "cognito" {
 
 }
 
-#################################
-# NLB
-#################################
-module "nlb" {
-  source          = "./modules/nlb"
-  env             = var.env
-  vpc_id          = module.vpc.vpc_id
-  private_subnets = module.vpc.private_subnet_ids
-}
+
 
 
 #################################
