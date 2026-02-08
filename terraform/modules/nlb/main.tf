@@ -30,6 +30,22 @@ resource "aws_lb_listener" "this" {
     target_group_arn = aws_lb_target_group.this.arn
   }
 }
+data "aws_eks_node_group" "default" {
+  cluster_name    = aws_eks_cluster.this.name
+  node_group_name = aws_eks_node_group.default.node_group_name
+}
+
+data "aws_instances" "eks_nodes" {
+  filter {
+    name   = "tag:eks:nodegroup-name"
+    values = [data.aws_eks_node_group.default.node_group_name]
+  }
+
+  filter {
+    name   = "instance-state-name"
+    values = ["running"]
+  }
+}
 
 resource "aws_lb_target_group_attachment" "this" {
   for_each          = toset(aws_eks_node_group.default.instances)
