@@ -36,6 +36,7 @@ module "eks" {
   node_group_min_size      = var.node_group_min_size
   node_group_max_size      = var.node_group_max_size
   target_port              = var.nlb_target_port
+  nlb_sg_id = module.nlb.nlb_sg_id
 }
 
 module "nlb" {
@@ -50,12 +51,6 @@ module "nlb" {
   eks_node_group_name = module.eks.node_group_name
 }
 
-# ربط الـ SG بين EKS و NLB
-module "eks_sg_rule" {
-  source = "./modules/eks"
-
-  nlb_sg_id = module.nlb.nlb_sg_id
-}
 
 
 module "irsa" {
