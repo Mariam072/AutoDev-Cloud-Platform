@@ -19,3 +19,5 @@ variable "target_port" {
   type    = number
   default = 80
 }
+variable "eks_cluster_name" {}
+variable "eks_node_group_name" {}
