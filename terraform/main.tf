@@ -36,7 +36,7 @@ module "eks" {
   node_group_min_size      = var.node_group_min_size
   node_group_max_size      = var.node_group_max_size
   target_port              = var.nlb_target_port
-  nlb_sg_id = module.nlb.nlb_sg_id
+  
 }
 
 module "nlb" {
