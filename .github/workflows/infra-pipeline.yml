@@ -108,8 +108,8 @@ jobs:
           helm upgrade --install argocd argo/argo-cd \
             --namespace argocd \
             --create-namespace \
-            --set server.service.type=ClusterIP \
-            --wait --timeout 10m
+            --set server.service.type=ClusterIP
+
 
       - name: Verify platform tools
         run: |
