@@ -98,6 +98,7 @@ jobs:
       # Install Ingress (NodePort)
       # =========================
       - name: Install Ingress Nginx
+        continue-on-error: true
         run: |
           helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
           helm repo update
