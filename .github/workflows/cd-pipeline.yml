@@ -1,0 +1,37 @@
+name: CD - Update GitOps Repo
+
+on:
+  workflow_dispatch:
+    inputs:
+      env:
+        description: 'Environment'
+        required: true
+        default: 'prod'
+        type: choice
+        options:
+          - nonprod
+          - prod
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout GitOps Repo
+        uses: actions/checkout@v4
+        with:
+          repository: Mariam072/AutoDev-Cloud-Platform
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update Image Tag
+        run: |
+          IMAGE_TAG=${GITHUB_SHA}
+          sed -i "s/tag:.*/tag: $IMAGE_TAG/" helm/auto-dev-demo/values.yaml
+
+      - name: Commit & Push
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add .
+          git commit -m "Update image tag to $IMAGE_TAG"
+          git push
