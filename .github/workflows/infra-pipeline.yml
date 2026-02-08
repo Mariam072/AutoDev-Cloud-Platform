@@ -93,7 +93,11 @@ jobs:
             --region "$AWS_REGION"
 
           kubectl get nodes
-
+          kubectl get nodes
+          kubectl get pods -A
+          kubectl get svc -n ingress-nginx
+          kubectl get svc -n argocd
+          
       # =========================
       # Install Ingress (NodePort)
       # =========================
@@ -126,19 +130,19 @@ jobs:
       # =========================
       # Debug & Verification
       # =========================
-      - name: Verify Platform
-        run: |
-          echo "===== NODES ====="
-          kubectl get nodes
+ #     - name: Verify Platform
+ #       run: |
+  #        echo "===== NODES ====="
+  #        kubectl get nodes
 
-          echo "===== ALL PODS ====="
-          kubectl get pods -A
+   #       echo "===== ALL PODS ====="
+    #      kubectl get pods -A
 
-          echo "===== INGRESS SVC ====="
-          kubectl get svc -n ingress-nginx
+     #     echo "===== INGRESS SVC ====="
+      #    kubectl get svc -n ingress-nginx
 
-          echo "===== ARGOCD SVC ====="
-          kubectl get svc -n argocd
+       #   echo "===== ARGOCD SVC ====="
+        #  kubectl get svc -n argocd
 
 
 
