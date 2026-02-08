@@ -8,6 +8,16 @@ resource "aws_security_group" "eks_node_sg" {
   vpc_id = var.vpc_id
 }
 
+resource "aws_security_group_rule" "allow_nlb_to_nodes" {
+  type                     = "ingress"
+  from_port                = var.target_port
+  to_port                  = var.target_port
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.eks_node_sg.id
+  source_security_group_id = aws_lb.this.security_groups[0]
+}
+
+
 resource "aws_eks_cluster" "this" {
   name     = var.cluster_name
   role_arn = var.cluster_role_arn
