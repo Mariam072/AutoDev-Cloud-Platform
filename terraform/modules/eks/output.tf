@@ -13,3 +13,7 @@ output "cluster_ca" {
 output "cluster_oidc_issuer" {
   value = aws_eks_cluster.this.identity[0].oidc[0].issuer
 }
+
+output "node_group_name" {
+  value = aws_eks_node_group.default.node_group_name
+}
