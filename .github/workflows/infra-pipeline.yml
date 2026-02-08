@@ -101,7 +101,12 @@ jobs:
           helm upgrade --install argocd argo/argo-cd \
             --namespace argocd \
             --create-namespace \
-            --wait --timeout 10m
+            #--wait --timeout 10m
+      - name: Verify platform tools
+        run: |
+          kubectl get pods -n ingress-nginx
+          kubectl get pods -n argocd
+          kubectl get svc -n argocd
 
 
   # =========================
