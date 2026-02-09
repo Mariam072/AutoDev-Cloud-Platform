@@ -44,5 +44,23 @@ resource "aws_eks_node_group" "default" {
     max_size     = var.node_group_max_size
   }
 
-  instance_types = [var.node_group_instance_type]
+  launch_template {
+    id      = aws_launch_template.node_lt.id
+    version = "$Latest"
+  }
 }
+
+resource "aws_launch_template" "node_lt" {
+  name_prefix   = "${var.cluster_name}-lt"
+  image_id      = null
+  instance_type = var.node_group_instance_type
+
+  vpc_security_group_ids = [
+    aws_security_group.eks_node_sg.id
+  ]
+}
+
+
+
+
+
