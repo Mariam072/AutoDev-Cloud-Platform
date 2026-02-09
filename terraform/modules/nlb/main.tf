@@ -32,27 +32,3 @@ resource "aws_lb_listener" "this" {
 }
 
 # جلب الـ Node Group من الـ EKS
-data "aws_eks_node_group" "default" {
-  cluster_name    = var.eks_cluster_name
-  node_group_name = var.eks_node_group_name
-}
-
-# جلب الـ EC2 instance IDs للـ Node Group
-data "aws_instances" "eks_nodes" {
-  filter {
-    name   = "tag:eks:nodegroup-name"
-    values = [data.aws_eks_node_group.default.node_group_name]
-  }
-  filter {
-    name   = "instance-state-name"
-    values = ["running"]
-  }
-}
-
-# ربط الـ NLB بالـ nodes
-resource "aws_lb_target_group_attachment" "this" {
-  for_each         = toset(data.aws_instances.eks_nodes.ids)
-  target_group_arn = aws_lb_target_group.this.arn
-  target_id        = each.value
-  port             = var.target_port
-}

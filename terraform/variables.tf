@@ -67,3 +67,4 @@ variable "nlb_target_port" {
   default = 80
   description = "Port for the NLB target group"
 }
+
