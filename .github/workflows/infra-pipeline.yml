@@ -108,9 +108,14 @@ jobs:
           helm repo update
 
           helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
-            -n ingress-nginx \
-            --create-namespace \
-            -f helm/auto-demo-app/ingress-nodeport/values-nodeport.yaml
+             -n ingress-nginx \
+             --create-namespace \
+             --set controller.service.type=NodePort \
+             --set controller.service.nodePorts.http=30080 \
+             --set controller.service.nodePorts.https=30443 \
+             --set controller.readinessProbe.httpGet.path=/ \
+             --set controller.readinessProbe.httpGet.port=30080
+
 
 
       # =========================
