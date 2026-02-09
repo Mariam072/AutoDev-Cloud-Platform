@@ -52,9 +52,7 @@ resource "aws_eks_node_group" "default" {
 
 resource "aws_launch_template" "node_lt" {
   name_prefix   = "${var.cluster_name}-lt"
-  image_id      = null
-  instance_type = var.node_group_instance_type
-
+ 
   vpc_security_group_ids = [
     aws_security_group.eks_node_sg.id
   ]
