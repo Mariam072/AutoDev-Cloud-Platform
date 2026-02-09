@@ -93,11 +93,10 @@ jobs:
             --region "$AWS_REGION"
 
           kubectl get nodes
-          kubectl get nodes
           kubectl get pods -A
           kubectl get svc -n ingress-nginx
           kubectl get svc -n argocd
-          
+
       # =========================
       # Install Ingress (NodePort)
       # =========================
@@ -113,10 +112,8 @@ jobs:
              --set controller.service.type=NodePort \
              --set controller.service.nodePorts.http=30080 \
              --set controller.service.nodePorts.https=30443 \
-             --set controller.readinessProbe.httpGet.path=/ \
-             --set controller.readinessProbe.httpGet.port=30080
-
-
+             --set controller.readinessProbe.httpGet.path=/healthz \
+             --set controller.readinessProbe.httpGet.port=10254
 
       # =========================
       # Install Argo CD (Internal)
@@ -147,8 +144,6 @@ jobs:
 
           echo "===== ARGOCD SVC ====="
           kubectl get svc -n argocd
-
-
 
 # =========================================================
 # 🔴 DESTROY INFRA
