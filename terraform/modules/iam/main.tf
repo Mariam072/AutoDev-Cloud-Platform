@@ -55,20 +55,41 @@ resource "aws_iam_role_policy_attachment" "ecr_policy" {
 }
 
 ############################
-# Access Entry (IMPORTANT)
+# SSM Read Role (for EKS or pipeline)
 ############################
 
-#resource "aws_eks_access_entry" "admin_access" {
- # cluster_name  = var.cluster_name
- # principal_arn = "arn:aws:iam::${var.aws_account_id}:root"
- # type          = "STANDARD"
-#}
+resource "aws_iam_role" "ssm_read_role" {
+  name = "${var.cluster_name}-ssm-read-role"
 
-#resource "aws_eks_access_policy_association" "admin_policy" {
-#  cluster_name  = var.cluster_name
-#  principal_arn = "arn:aws:iam::${var.aws_account_id}:root"
-#  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
-#  access_scope {
-#    type = "cluster"
-#  }
-#}
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Principal = {
+        Service = "ec2.amazonaws.com"  # لو EKS worker nodes هيقرأوها
+        # Service = "ecs-tasks.amazonaws.com"  # لو pipeline أو ECS
+      }
+      Action = "sts:AssumeRole"
+    }]
+  })
+}
+
+resource "aws_iam_role_policy" "ssm_read_policy" {
+  name = "${var.cluster_name}-ssm-read-policy"
+  role = aws_iam_role.ssm_read_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ssm:GetParameter",
+          "ssm:GetParameters"
+        ]
+        Resource = "arn:aws:ssm:${var.aws_region}:${var.aws_account_id}:parameter/*"
+      }
+    ]
+  })
+}
+
