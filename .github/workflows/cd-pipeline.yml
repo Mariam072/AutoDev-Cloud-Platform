@@ -89,7 +89,7 @@ jobs:
           cd gitops
           git config user.name "github-actions"
           git config user.email "actions@github.com"
-          git add helm/auto-dev-demo/values.yaml k8s/deployment.yaml
+          git add helm/auto-dev-demo/values.yaml 
           git commit -m "Update image to $IMAGE_TAG and repo to $ECR_URL"
           git push
 
