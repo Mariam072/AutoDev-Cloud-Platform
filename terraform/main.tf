@@ -48,7 +48,7 @@ module "nlb" {
   listener_port   = var.nlb_listener_port
 
   eks_cluster_name    = module.eks.cluster_name
-#  eks_node_group_name = module.eks.node_group_name
+  eks_node_group_name = module.eks.node_group_name
 }
 
 
@@ -96,7 +96,7 @@ module "api_gateway" {
   vpc_id              = module.vpc.vpc_id
 
 }
-#data "aws_eks_node_group" "default" {
+data "aws_eks_node_group" "default" {
   cluster_name    = var.cluster_name
   node_group_name = module.eks.node_group_name
 }
