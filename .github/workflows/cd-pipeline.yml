@@ -84,6 +84,36 @@ jobs:
           git add helm/auto-dev-demo/values.yaml
           git commit -m "Update image tag to $IMAGE_TAG and repo to $ECR_URL"
           git push
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_wrapper: false
+
+      - name: Connect to EKS
+        run: |
+          cd $TF_DIR
+          terraform init -input=false
+          terraform workspace select ${{ github.event.inputs.env }}
+
+          CLUSTER_NAME=$(terraform output -raw cluster_name)
+
+          aws eks update-kubeconfig \
+            --name "$CLUSTER_NAME" \
+            --region "$AWS_REGION"
+
+      - name: Apply ArgoCD Application
+        run: |
+          kubectl apply -f argocd/auto-dev-demo-app.yaml
 
       - name: Verification
         run: |
