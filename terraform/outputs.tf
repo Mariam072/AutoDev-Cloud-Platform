@@ -45,3 +45,8 @@ output "irsa_role_arn" {
 output "ecr_repository_url" {
   value = module.ecr.repository_url
 }
+
+output "mongo_uri_ssm_name" {
+  value = module.ssm.mongo_uri_ssm_name
+}
+
