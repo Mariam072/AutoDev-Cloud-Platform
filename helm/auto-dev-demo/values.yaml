@@ -1,8 +1,8 @@
 replicaCount: 1
 
 image:
-  repository: ""          # we'll load it into minikube
-  tag: ""
+  repository: 869483685448.dkr.ecr.eu-west-1.amazonaws.com/prod-db-check
+  tag: da07a9023454ffe425ac43ae62531e75f5c10bb4
   pullPolicy: Always
 
 service:
@@ -17,4 +17,4 @@ ingress:
   path: /
   pathType: Prefix
 
-mongoUri: ""                         # leave empty or override with --set
+mongoUri: mongodb+srv://mariam:1234@cluster0.6oezh3q.mongodb.net/?appName=Cluster0
