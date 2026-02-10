@@ -81,10 +81,7 @@ jobs:
           sed -i "s|tag:.*|tag: $IMAGE_TAG|" gitops/helm/auto-dev-demo/values.yaml
           sed -i "s|mongoUri:.*|mongoUri: $MONGO_URI|" gitops/helm/auto-dev-demo/values.yaml
 
-      # 9️⃣ Optionally update Deployment.yaml directly (ensures ErrImagePull gone)
-      - name: Update Deployment.yaml image
-        run: |
-          sed -i "s|image: .*|image: $ECR_URL:$IMAGE_TAG|" gitops/k8s/deployment.yaml
+
 
       # 🔟 Commit & Push changes back to GitOps repo
       - name: Commit & Push Changes
