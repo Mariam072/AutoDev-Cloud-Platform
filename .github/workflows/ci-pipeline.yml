@@ -23,32 +23,53 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Configure AWS
+      # =========================
+      # AWS Authentication
+      # =========================
+      - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+      # =========================
+      # Setup Terraform
+      # =========================
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_wrapper: false
 
-      - name: Get ECR URL
+      # =========================
+      # Get ECR URL from Terraform State
+      # =========================
+      - name: Get ECR Repository URL
         run: |
           cd $TF_DIR
           terraform init -input=false
           terraform workspace select ${{ github.event.inputs.env }}
-          ECR_URL=$(terraform output -raw ecr_repository_url | tr -d '\n')
+
+          ECR_URL=$(terraform output -raw ecr_repository_url)
           echo "ECR_URL=$ECR_URL" >> $GITHUB_ENV
 
+      # =========================
+      # Login to Amazon ECR
+      # =========================
       - name: Login to ECR
         run: |
           aws ecr get-login-password --region $AWS_REGION | \
           docker login --username AWS --password-stdin $ECR_URL
 
-      - name: Build & Push Docker Image
+      # =========================
+      # Build & Push Image
+      # =========================
+      - name: Build and Push Docker Image
         run: |
           IMAGE_TAG=${GITHUB_SHA}
           docker build -t app:$IMAGE_TAG app
           docker tag app:$IMAGE_TAG $ECR_URL:$IMAGE_TAG
           docker push $ECR_URL:$IMAGE_TAG
+
+          echo "Image pushed:"
+          echo "$ECR_URL:$IMAGE_TAG"
