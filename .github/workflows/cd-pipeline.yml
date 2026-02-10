@@ -26,6 +26,10 @@ jobs:
         with:
           repository: Mariam072/AutoDev-Cloud-Platform
           token: ${{ secrets.GH_PAT }}
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_wrapper: false
 
       - name: Get ECR URL from Terraform
         run: |
