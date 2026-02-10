@@ -68,3 +68,8 @@ variable "nlb_target_port" {
   description = "Port for the NLB target group"
 }
 
+variable "mongo_uri" {
+  type        = string
+  description = "MongoDB URI"
+}
+
