@@ -13,13 +13,14 @@ module "vpc" {
 # EKS
 #################################
 
-#data "aws_caller_identity" "current" {}
+data "aws_caller_identity" "current" {}
 
 module "iam" {
   source         = "./modules/iam"
   cluster_name   = var.cluster_name
   env            = var.env
-#  aws_account_id = data.aws_caller_identity.current.account_id
+  aws_account_id = data.aws_caller_identity.current.account_id
+  aws_region    = var.aws_region
 }
 
 module "eks" {
