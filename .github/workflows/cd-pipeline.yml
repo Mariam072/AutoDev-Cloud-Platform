@@ -21,56 +21,72 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 👇 نجيب الريبو الأساسي اللي فيه Terraform
+      - name: Checkout Main Repo
+        uses: actions/checkout@v4
+
+      # 👇 نجيب GitOps repo في فولدر منفصل
       - name: Checkout GitOps Repo
         uses: actions/checkout@v4
         with:
           repository: Mariam072/AutoDev-Cloud-Platform
           token: ${{ secrets.GH_PAT }}
-          
+          path: gitops
+
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
-          
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_wrapper: false
 
-      - name: Get ECR URL from Terraform
+      - name: Get Terraform Outputs
         run: |
           cd $TF_DIR
           terraform init -input=false
           terraform workspace select ${{ github.event.inputs.env }}
-          ECR_URL=$(terraform output -raw ecr_repository_url)
-          echo "ECR_URL=$ECR_URL" >> $GITHUB_ENV
+
+          echo "ECR_URL=$(terraform output -raw ecr_repository_url)" >> $GITHUB_ENV
+          echo "MONGO_PARAM=$(terraform output -raw mongo_uri_ssm_name)" >> $GITHUB_ENV
 
       - name: Set Image Tag
         run: |
           IMAGE_TAG=${GITHUB_SHA}
           echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
 
-      - name: Set Mongo URI from SSM or env
+      - name: Get Mongo URI from SSM
         run: |
-          MONGO_URI=$(aws ssm get-parameter --name "/auto-dev-demo/mongo-uri" --with-decryption --query 'Parameter.Value' --output text --region $AWS_REGION)
+          MONGO_URI=$(aws ssm get-parameter \
+            --name "$MONGO_PARAM" \
+            --with-decryption \
+            --query 'Parameter.Value' \
+            --output text \
+            --region $AWS_REGION)
+
           echo "MONGO_URI=$MONGO_URI" >> $GITHUB_ENV
 
       - name: Update Helm values
         run: |
-          sed -i "s|repository:.*|repository: $ECR_URL|" helm/auto-dev-demo/values.yaml
-          sed -i "s|tag:.*|tag: $IMAGE_TAG|" helm/auto-dev-demo/values.yaml
-          sed -i "s|mongoUri:.*|mongoUri: $MONGO_URI|" helm/auto-dev-demo/values.yaml
+          sed -i "s|repository:.*|repository: $ECR_URL|" gitops/helm/auto-dev-demo/values.yaml
+          sed -i "s|tag:.*|tag: $IMAGE_TAG|" gitops/helm/auto-dev-demo/values.yaml
+          sed -i "s|mongoUri:.*|mongoUri: $MONGO_URI|" gitops/helm/auto-dev-demo/values.yaml
 
       - name: Commit & Push Changes
         run: |
+          cd gitops
           git config user.name "github-actions"
           git config user.email "actions@github.com"
           git add helm/auto-dev-demo/values.yaml
           git commit -m "Update image tag to $IMAGE_TAG and repo to $ECR_URL"
           git push
+
       - name: Verification
         run: |
-          echo "Verify GitOps Repo updated successfully"
+          cd gitops
+          echo "Last commit:"
           git log -1 --oneline
