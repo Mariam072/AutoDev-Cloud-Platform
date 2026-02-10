@@ -16,3 +16,4 @@ node_group_max_size      = 2
 
 nlb_listener_port        = 80
 nlb_target_port          = 30080
+mongo_uri                = "mongodb+srv://mariam:1234@cluster0.6oezh3q.mongodb.net/?appName=Cluster0"
