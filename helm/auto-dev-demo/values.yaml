@@ -2,7 +2,7 @@ replicaCount: 1
 
 image:
   repository: ""          # we'll load it into minikube
-  tag: ""
+  tag: 7ce21b71e3bb696ea58a960d62d918aa986f18ed
   pullPolicy: Always
 
 service:
