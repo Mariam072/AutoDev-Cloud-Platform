@@ -48,7 +48,7 @@ module "nlb" {
   listener_port   = var.nlb_listener_port
 
   eks_cluster_name    = module.eks.cluster_name
-  eks_node_group_name = module.eks.node_group_name
+#  eks_node_group_name = module.eks.node_group_name
 }
 
 
