@@ -60,6 +60,11 @@ module "irsa" {
   env           = var.env
 }
 
+module "ssm" {
+  source    = "./modules/ssm"
+  env       = var.env
+  mongo_uri = var.mongo_uri
+}
 
 #################################
 # ECR
