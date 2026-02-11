@@ -32,4 +32,12 @@ resource "aws_cognito_user_pool_client" "this" {
   ]
 
   supported_identity_providers = ["COGNITO"]
+access_token_validity  = 3600     
+  id_token_validity      = 3600   
+  refresh_token_validity = 30     
+  token_validity_units {
+    access_token  = "seconds"
+    id_token      = "seconds"
+    refresh_token = "days"
+  }
 }
