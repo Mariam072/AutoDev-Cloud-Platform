@@ -1,1 +1,111 @@
 
+jobs:
+  api-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Configure AWS
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-1
+
+      # Get Terraform outputs
+      - name: Get Terraform Outputs
+        run: |
+          cd terraform
+          terraform init -input=false
+          terraform workspace select prod
+
+          echo "CLIENT_ID=$(terraform output -raw cognito_user_pool_client_id)" >> $GITHUB_ENV
+          echo "USER_POOL_ID=$(terraform output -raw cognito_user_pool_id)" >> $GITHUB_ENV
+          echo "API_URL=$(terraform output -raw api_endpoint)" >> $GITHUB_ENV
+
+      # Create user if not exists + Authenticate + Test API
+      - name: Cognito + API Test
+        env:
+          USERNAME: ${{ secrets.COGNITO_USERNAME }}
+          PASSWORD: ${{ secrets.COGNITO_PASSWORD }}
+        run: |
+
+          echo "Checking if user exists..."
+
+          USER_EXISTS=$(aws cognito-idp admin-get-user \
+            --user-pool-id "$USER_POOL_ID" \
+            --username "$USERNAME" 2>&1 || true)
+
+          if echo "$USER_EXISTS" | grep -q "UserNotFoundException"; then
+            echo "User does not exist. Creating user..."
+
+            aws cognito-idp admin-create-user \
+              --user-pool-id "$USER_POOL_ID" \
+              --username "$USERNAME" \
+              --temporary-password "$PASSWORD" \
+              --message-action SUPPRESS
+
+            aws cognito-idp admin-set-user-password \
+              --user-pool-id "$USER_POOL_ID" \
+              --username "$USERNAME" \
+              --password "$PASSWORD" \
+              --permanent
+
+            echo "User created and password set permanent ✅"
+          else
+            echo "User already exists ✅"
+          fi
+
+
+          echo "Initiating auth..."
+
+          AUTH_RESPONSE=$(aws cognito-idp initiate-auth \
+            --auth-flow USER_PASSWORD_AUTH \
+            --client-id "$CLIENT_ID" \
+            --auth-parameters USERNAME="$USERNAME",PASSWORD="$PASSWORD")
+
+          CHALLENGE=$(echo "$AUTH_RESPONSE" | jq -r '.ChallengeName')
+
+          if [ "$CHALLENGE" = "NEW_PASSWORD_REQUIRED" ]; then
+            echo "Responding to NEW_PASSWORD_REQUIRED..."
+
+            SESSION=$(echo "$AUTH_RESPONSE" | jq -r '.Session')
+
+            AUTH_RESPONSE=$(aws cognito-idp respond-to-auth-challenge \
+              --challenge-name NEW_PASSWORD_REQUIRED \
+              --client-id "$CLIENT_ID" \
+              --challenge-responses USERNAME="$USERNAME",NEW_PASSWORD="$PASSWORD" \
+              --session "$SESSION")
+          fi
+
+          ACCESS_TOKEN=$(echo "$AUTH_RESPONSE" | jq -r '.AuthenticationResult.AccessToken')
+
+          if [ -z "$ACCESS_TOKEN" ] || [ "$ACCESS_TOKEN" = "null" ]; then
+            echo "Failed to get Access Token ❌"
+            exit 1
+          fi
+
+          echo "Token retrieved successfully ✅"
+
+          echo "Calling API..."
+
+          RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" \
+            -H "Authorization: Bearer $ACCESS_TOKEN" \
+            "$API_URL")
+
+          BODY=$(echo "$RESPONSE" | sed -e 's/HTTP_STATUS:.*//g')
+          STATUS=$(echo "$RESPONSE" | tr -d '\n' | sed -e 's/.*HTTP_STATUS://')
+
+          echo "Response Body:"
+          echo "$BODY"
+
+          echo "HTTP Status: $STATUS"
+
+          if [ "$STATUS" -ne 200 ]; then
+            echo "API test failed ❌"
+            exit 1
+          fi
+
+          echo "API test passed ✅"
