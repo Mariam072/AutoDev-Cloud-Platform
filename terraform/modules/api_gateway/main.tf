@@ -45,6 +45,9 @@ resource "aws_apigatewayv2_integration" "eks" {
   connection_id   = aws_apigatewayv2_vpc_link.this.id
 
   integration_method = "ANY"
+ request_parameters = {
+    "overwrite:header.Host" = "demo.local"
+  }
 }
 
 resource "aws_apigatewayv2_route" "proxy" {
