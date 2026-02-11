@@ -49,4 +49,8 @@ output "ecr_repository_url" {
 output "mongo_uri_ssm_name" {
   value = module.ssm.mongo_uri_ssm_name
 }
+output "cognito_user_pool_client_id" {
+  description = "The Cognito User Pool Client ID"
+  value       = module.cognito.user_pool_client_id
+}
 
