@@ -17,4 +17,5 @@ ingress:
   path: /
   pathType: Prefix
 
-mongoUri: mongodb+srv://mariam:1234@cluster0.6oezh3q.mongodb.net/?appName=Cluster0
+mongoUri: mongodb://mariam:1234@159.41.79.59:27017,159.41.64.229:27017,159.41.79.64:27017/?ssl=true&replicaSet=Cluster0-shard-0&authSource=admin&retryWrites=true&w=majority
+
