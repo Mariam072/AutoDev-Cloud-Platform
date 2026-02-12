@@ -65,8 +65,9 @@ Connects API Gateway to the internal NLB in private subnets for enhanced securit
 - Scalable, isolated, and easy to deploy/rollout
 
 **Traffic Flow Example (NLB → Ingress → Pods)**
+<img width="830" height="336" alt="image" src="https://github.com/user-attachments/assets/3ef520d0-775c-4893-aa42-035d85b94232" />
 
-![Kubernetes NGINX Ingress traffic routing example](https://miro.medium.com/1*FT6ZQau2LNT3JZ5d0YoIqQ.png)
+
 
 <!-- Another clear option: -->
 <!-- ![Ingress to Service to Pod overview](https://miro.medium.com/1*KIVa4hUVZxg-8Ncabo8pdg.png) -->
@@ -82,9 +83,7 @@ Connects API Gateway to the internal NLB in private subnets for enhanced securit
 | **IRSA Role**     | Specific Pods        | Fine-grained permissions using OIDC federation (no long-lived keys)    |
 | **SSM Read Role** | Pods                 | Securely read configuration/secrets from Parameter Store               |
 
-**IRSA (IAM Roles for Service Accounts) Flow**
 
-![IRSA authentication flow diagram](https://miro.medium.com/1*KsKzQ6fxvw3IOFdoaDatjg.png)
 
 <!-- Alternative detailed view: -->
 <!-- ![IRSA with OIDC and STS](https://miro.medium.com/v2/resize:fit:1400/1*QGunaPLP0fLmr7KYs9fN7A.png) -->
