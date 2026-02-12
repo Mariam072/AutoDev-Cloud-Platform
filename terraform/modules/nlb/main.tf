@@ -31,4 +31,4 @@ resource "aws_lb_listener" "this" {
   }
 }
 
-# جلب الـ Node Group من الـ EKS
+
