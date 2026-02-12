@@ -2,7 +2,7 @@
 
 This document explains the architecture of our AutoDev Cloud Platform, showing how traffic flows from external clients to internal services running inside an EKS cluster. The diagram and explanation highlight each component, its role, and why it's needed.
 
-![Architecture Flow](A_flowchart_diagram_illustrates_the_architecture_o.png)
+![Architecture Flow](./A_flowchart_diagram_illustrates_the_architecture_o.png)
 
 ---
 
@@ -82,6 +82,19 @@ This design ensures security, scalability, and proper routing inside the cluster
   - Provides internal routing and service discovery.
   - Decouples external access from internal service structure.
   - Enables using a single port and host while routing multiple applications.
+
+---
+
+## IAM Roles Overview
+
+IAM roles provide fine-grained access control for each part of the system:
+
+| Role | Used By | Purpose |
+|------|---------|---------|
+| **Cluster Role** | EKS Control Plane | Allows the control plane to manage AWS resources like Load Balancers, Security Groups, ENIs, etc. |
+| **Node Role** | Worker Nodes (EC2) | Lets nodes join the cluster, pull images from ECR, and manage networking for pods. |
+| **IRSA Role** | Specific Pods | Provides pods only the permissions they need using Kubernetes ServiceAccount + OIDC federation. |
+| **SSM Read Role** | Pods (via IRSA) | Allows pods to securely read secrets from AWS Systems Manager Parameter Store (e.g., DB credentials) without hardcoding them. |
 
 ---
 
