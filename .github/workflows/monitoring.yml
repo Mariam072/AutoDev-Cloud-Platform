@@ -1,36 +1,84 @@
-name: Monitoring - Deploy Datadog
+name: Monitoring Pipeline
 
 on:
   workflow_dispatch:
+    inputs:
+      env:
+        description: 'Environment'
+        required: true
+        default: 'prod'
+        type: choice
+        options:
+          - nonprod
+          - prod
+
+env:
+  TF_DIR: terraform
+  AWS_REGION: eu-west-1
 
 jobs:
-  deploy-datadog:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository
+      #  Checkout main repo (Terraform + infra)
+      - name: Checkout Main Repo
         uses: actions/checkout@v4
 
+      #  Checkout GitOps repo
+      - name: Checkout GitOps Repo
+        uses: actions/checkout@v4
+        with:
+          repository: Mariam072/AutoDev-Cloud-Platform
+          token: ${{ secrets.GH_PAT }}
+          path: gitops
+
+      #  Configure AWS credentials
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: eu-west-1   # غيريها حسب الريجن بتاعك
+          aws-region: ${{ env.AWS_REGION }}
 
+      #  Setup Terraform
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_wrapper: false
+
+      #  Get Terraform outputs
+      - name: Get Terraform Outputs
+        run: |
+          cd $TF_DIR
+          terraform init -input=false
+          terraform workspace select ${{ github.event.inputs.env }}
+
+      #  Read cluster_name from Terraform output
+      - name: Read Cluster Name
+        id: tf_output
+        run: |
+          cd $TF_DIR
+          CLUSTER_NAME=$(terraform output -raw cluster_name)
+          echo "CLUSTER_NAME=$CLUSTER_NAME" >> $GITHUB_ENV
+
+      #  Update kubeconfig for EKS
       - name: Update kubeconfig
         run: |
-          aws eks update-kubeconfig --name prod-eks --region eu-west-1
+          aws eks update-kubeconfig --name ${{ env.CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
 
+      #  Add Datadog Helm repo
       - name: Add Datadog Helm Repo
         run: |
           helm repo add datadog https://helm.datadoghq.com
           helm repo update
 
+      #  Create datadog namespace
       - name: Create Namespace
         run: |
           kubectl create namespace datadog --dry-run=client -o yaml | kubectl apply -f -
 
+      # Create Datadog Secret
       - name: Create Datadog Secret
         run: |
           kubectl create secret generic datadog-secret \
@@ -38,15 +86,23 @@ jobs:
             -n datadog \
             --dry-run=client -o yaml | kubectl apply -f -
 
+      #  Deploy Datadog Agent via Helm
       - name: Deploy Datadog Agent
         run: |
           helm upgrade --install datadog-agent datadog/datadog \
             --namespace datadog \
+            --set datadog.clusterName=${{ env.CLUSTER_NAME }} \
             --set datadog.site=us5.datadoghq.com \
-            --set datadog.clusterName=prod-eks \
             --set datadog.apiKeyExistingSecret=datadog-secret \
             --set datadog.logs.enabled=true \
             --set datadog.logs.containerCollectAll=true \
             --set datadog.apm.enabled=true \
             --set datadog.kubeStateMetricsEnabled=true \
             --set clusterAgent.enabled=true
+      - name: Verify Datadog Agent
+        run: |
+          echo "Checking Datadog pods in datadog namespace..."
+          kubectl get pods -n datadog
+          
+          echo "Checking DaemonSet status..."
+          kubectl get daemonset datadog-agent -n datadog -o wide
