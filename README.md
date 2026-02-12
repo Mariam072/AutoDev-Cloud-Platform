@@ -6,15 +6,14 @@ This README explains the architecture, deployment, monitoring, and CI/CD workflo
 
 ## Architecture Overview
 
-The platform runs inside an **AWS EKS** cluster with secure public access and private internal routing.  
-Request flow:
+**Client → API Gateway → Cognito → VPC Link → NLB → Target Group → Worker Nodes → Ingress Controller → Ingress → Service → App**
 
-**Client → API Gateway → Cognito → VPC Link → NLB → Worker Node → Ingress Controller → Services**
+### Architecture Flow Diagram (Watercolor Style)
 
-### Architecture Flow Diagram
+![API to App Flow - Watercolor](https://files.oaiusercontent.com/.../watercolor-flow-diagram.png)
 
-![API & Ingress Flow](./A_flowchart_diagram_illustrates_the_architecture_o.png)
 
+The request flow starts from the browser or client, passes through AWS API Gateway with Cognito JWT authorization, then securely routes via VPC Link to the internal NLB, reaches the EKS worker nodes through the target group, gets handled by the NGINX Ingress Controller, and finally delivers to the application pod via Kubernetes Service.
 <!-- Alternative high-quality diagram suggestion: -->
 <!-- ![EKS with API Gateway, VPC Link, NLB and NGINX Ingress](https://miro.medium.com/1*niGSisdWs18X_XgEfc4qog.jpeg) -->
 
