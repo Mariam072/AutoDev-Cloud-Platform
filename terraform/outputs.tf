@@ -18,9 +18,6 @@
 #  value = module.routing.nat_ids
 #}
 
-#output "eks_cluster_name" {
-#  value = module.eks.cluster_name
-#}
 output "api_endpoint" {
   value = module.api_gateway.api_endpoint
 }
