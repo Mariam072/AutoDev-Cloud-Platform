@@ -12,7 +12,7 @@ resource "aws_security_group" "eks_node_sg" {
   vpc_id = var.vpc_id
 }
 
-# السماح للـ Nodes بالتواصل مع الـ Cluster (443)
+
 resource "aws_security_group_rule" "cluster_ingress_from_nodes" {
   type                     = "ingress"
   from_port                = 443
@@ -22,7 +22,7 @@ resource "aws_security_group_rule" "cluster_ingress_from_nodes" {
   source_security_group_id = aws_security_group.eks_node_sg.id
 }
 
-# السماح للـ Nodes بالخروج لأي مكان (مهم جدًا للـ bootstrap)
+
 resource "aws_security_group_rule" "node_egress_all" {
   type              = "egress"
   from_port         = 0
@@ -32,7 +32,7 @@ resource "aws_security_group_rule" "node_egress_all" {
   cidr_blocks       = ["0.0.0.0/0"]
 }
 
-# السماح للـ NLB بالوصول للـ NodePort
+
 resource "aws_security_group_rule" "allow_nodeport_from_vpc" {
   type              = "ingress"
   from_port         = var.target_port
@@ -78,7 +78,7 @@ resource "aws_eks_node_group" "default" {
     max_size     = var.node_group_max_size
   }
 
-  # نربط الـ Node Group بالـ SG بتاعتنا
+
   update_config {
     max_unavailable = 1
   }
