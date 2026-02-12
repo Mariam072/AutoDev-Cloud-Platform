@@ -9,7 +9,8 @@ This README explains the architecture, deployment, monitoring, and CI/CD workflo
 **Client → API Gateway → Cognito → VPC Link → NLB → Target Group → Worker Nodes → Ingress Controller → Ingress → Service → App**
 
 ### Architecture Flow Diagram (Watercolor Style)
-<img width="1200" height="560" alt="image" src="https://github.com/user-attachments/assets/6e9262ce-998a-4bf8-86c9-832dcd4949a2" />
+<img width="597" height="854" alt="image" src="https://github.com/user-attachments/assets/f715df02-1546-460f-bc6c-43c83a4c11c0" />
+
 
 
 
