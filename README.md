@@ -1,18 +1,22 @@
-# AutoDev Cloud Platform Architecture
+# AutoDev Cloud Platform Architecture & Deployment
 
-This document explains the architecture of our AutoDev Cloud Platform, showing how traffic flows from external clients to internal services running inside an EKS cluster. The diagram and explanation highlight each component, its role, and why it's needed.
-
-![Architecture Flow](./A_flowchart_diagram_illustrates_the_architecture_o.png)
+This README explains the architecture, deployment, monitoring, and CI/CD workflows for the **AutoDev Cloud Platform** running on AWS EKS.
 
 ---
 
-## Architecture Flow Overview
+## Architecture Overview
 
-The flow follows this path:
+The platform runs inside an **AWS EKS** cluster with secure public access and private internal routing.  
+Request flow:
 
 **Client → API Gateway → Cognito → VPC Link → NLB → Worker Node → Ingress Controller → Services**
 
-This design ensures security, scalability, and proper routing inside the cluster.
+### Architecture Flow Diagram
+
+![API & Ingress Flow](./A_flowchart_diagram_illustrates_the_architecture_o.png)
+
+<!-- Alternative high-quality diagram suggestion: -->
+<!-- ![EKS with API Gateway, VPC Link, NLB and NGINX Ingress](https://miro.medium.com/1*niGSisdWs18X_XgEfc4qog.jpeg) -->
 
 ---
 
@@ -20,90 +24,123 @@ This design ensures security, scalability, and proper routing inside the cluster
 
 ### 1. Client
 - **Type:** Web / Mobile
-- **Role:** Sends HTTP requests to the platform.
-- **Reason:** Entry point for users or external systems.
+- **Role:** Sends HTTP requests to the platform
+- **Reason:** Entry point for users or external systems
 
 ### 2. API Gateway (HTTP API)
-- **Type:** AWS API Gateway (HTTP API)
-- **Features:** 
-  - JWT Authentication integrated with **Cognito**.
-  - Serves as the single entry point to all services.
-- **Reason:** 
-  - Centralizes access control.
-  - Handles authentication/authorization.
-  - Forwards traffic to backend services securely.
+- **Type:** AWS API Gateway
+- **Features:**
+  - JWT Authentication via Cognito
+  - Single entry point for all services
+- **Reason:** Centralized access control and secure routing to backend
 
 ### 3. Cognito (JWT Auth)
 - **Type:** AWS Cognito User Pool
-- **Role:** Validates user identity via JWT tokens.
-- **Reason:** 
-  - Ensures only authorized users access the API.
-  - Supports secure authentication flow without hardcoding credentials.
+- **Role:** Validates user identity using JWT tokens
+- **Reason:** Secure authorization without hardcoded credentials
 
 ### 4. VPC Link
-- **Type:** API Gateway VPC Link
-- **Role:** Connects the API Gateway to **internal resources** in the private VPC.
-- **Reason:** 
-  - Enables API Gateway (public) to communicate with private NLB inside VPC.
-  - Maintains security by avoiding direct public exposure of internal services.
+Connects API Gateway to the internal NLB in private subnets for enhanced security.
 
 ### 5. NLB (Network Load Balancer)
-- **Type:** AWS Network Load Balancer
-- **Port:** 30080
-- **Role:** Distributes incoming traffic from VPC Link to worker nodes.
-- **Reason:** 
-  - High availability and scalability.
-  - Handles TCP routing efficiently inside private subnet.
+- Listens on TCP port 30080
+- Distributes traffic to worker nodes inside the EKS cluster
 
-### 6. Worker Node
-- **Type:** EC2 instances (Node Group)
-- **Role:** Hosts pods running application services.
-- **Node Role:** Provides permissions to pull Docker images from ECR and interact with the cluster.
-- **Reason:** 
-  - Executes the workloads.
-  - Ensures pods have access to necessary AWS resources without over-permissioning.
+### 6. Worker Nodes (EC2 Instances)
+- Host application pods
+- Node IAM role grants access to ECR, cluster resources, etc.
 
-### 7. Ingress Controller
-- **Type:** Nginx / Kubernetes Ingress Controller
-- **Role:** Routes incoming traffic from worker nodes to specific services inside the cluster based on Host/Path.
-- **Reason:** 
-  - Provides internal routing and service discovery.
-  - Decouples external access from internal service structure.
-  - Enables using a single port and host while routing multiple applications.
+### 7. Ingress Controller (NGINX)
+- Routes traffic from NodePort → ClusterIP Services based on host/path rules
+- Allows multiple applications to share the same external endpoint
+
+### 8. Service (ClusterIP)
+- Provides internal load balancing and discovery for pods
+- Decouples pod IPs from external access
+
+### 9. Application Pod
+- Runs the main app container listening on port 8080
+- Scalable, isolated, and easy to deploy/rollout
+
+**Traffic Flow Example (NLB → Ingress → Pods)**
+
+![Kubernetes NGINX Ingress traffic routing example](https://miro.medium.com/1*FT6ZQau2LNT3JZ5d0YoIqQ.png)
+
+<!-- Another clear option: -->
+<!-- ![Ingress to Service to Pod overview](https://miro.medium.com/1*KIVa4hUVZxg-8Ncabo8pdg.png) -->
 
 ---
 
 ## IAM Roles Overview
 
-IAM roles provide fine-grained access control for each part of the system:
+| Role              | Used By              | Purpose                                                                 |
+|-------------------|----------------------|-------------------------------------------------------------------------|
+| **Cluster Role**  | EKS Control Plane    | Manage AWS resources (LBs, Security Groups, ENIs)                       |
+| **Node Role**     | Worker Nodes         | Pull images from ECR, networking permissions                            |
+| **IRSA Role**     | Specific Pods        | Fine-grained permissions using OIDC federation (no long-lived keys)    |
+| **SSM Read Role** | Pods                 | Securely read configuration/secrets from Parameter Store               |
 
-| Role | Used By | Purpose |
-|------|---------|---------|
-| **Cluster Role** | EKS Control Plane | Allows the control plane to manage AWS resources like Load Balancers, Security Groups, ENIs, etc. |
-| **Node Role** | Worker Nodes (EC2) | Lets nodes join the cluster, pull images from ECR, and manage networking for pods. |
-| **IRSA Role** | Specific Pods | Provides pods only the permissions they need using Kubernetes ServiceAccount + OIDC federation. |
-| **SSM Read Role** | Pods (via IRSA) | Allows pods to securely read secrets from AWS Systems Manager Parameter Store (e.g., DB credentials) without hardcoding them. |
+**IRSA (IAM Roles for Service Accounts) Flow**
+
+![IRSA authentication flow diagram](https://miro.medium.com/1*KsKzQ6fxvw3IOFdoaDatjg.png)
+
+<!-- Alternative detailed view: -->
+<!-- ![IRSA with OIDC and STS](https://miro.medium.com/v2/resize:fit:1400/1*QGunaPLP0fLmr7KYs9fN7A.png) -->
 
 ---
 
-## Port Exposure Concept
+## Deployment & Monitoring Flow
 
-- **API Gateway:** Exposed publicly to clients.
-- **VPC Link → NLB → Worker Node:** Traffic flows through private ports (e.g., 30080), not publicly exposed.
-- **Ingress Controller:** Handles routing to services internally, allowing multiple apps to share the same external endpoint securely.
-- **Security:** Only the API Gateway is exposed to the internet; all other components stay private, enforcing the principle of least privilege.
+### Deployment & Monitoring Diagram
+
+![Deployment & Monitoring Flow](./230e4d6d-4417-452d-8bdb-eb3506fd57fb.png)
+
+### Key Components
+1. **AWS NLB** – Receives external traffic (TCP 80 → NodePort 30080)
+2. **Kubernetes Nodes (EC2)** – Host pods and expose NodePort
+3. **Ingress Controller (NGINX)** – Routes to ClusterIP Services
+4. **Application Pods** – Run containers on port 8080
+5. **GitHub** – Stores Helm charts and Kubernetes manifests
+6. **Argo CD** – Continuously syncs desired state from Git (GitOps)
+7. **Datadog Agent Pod** – Collects metrics, logs, traces
+
+### Flow Summary
+- **Traffic:** NLB → NodePort → Ingress → ClusterIP → Pods
+- **Deployment:** GitHub → Argo CD → Apply manifests → Pods
+- **Monitoring:** Pods → Datadog Agent → Datadog Dashboards
+
+**GitOps with Argo CD Workflow**
+
+![Argo CD GitOps pull & sync diagram](https://miro.medium.com/v2/resize:fit:1400/0*xlhcKxOp0eh9RHsu)
+
+<!-- Another good pipeline view: -->
+<!-- ![GitHub Actions + Argo CD CI/CD flow](https://miro.medium.com/v2/resize:fit:1400/1*UsoRh3pKIEzO-fmOZrKcZA.png) -->
+
+---
+
+## CI/CD Pipelines Overview
+
+All pipelines live in `.github/workflows`:
+
+| Workflow File            | Purpose                                              |
+|--------------------------|------------------------------------------------------|
+| `ci-pipeline.yml`        | Continuous Integration (build, test, lint)           |
+| `cd-pipeline.yml`        | Continuous Deployment (push Helm charts / manifests) |
+| `cognito&Apitest.yml`    | Cognito user setup + API integration testing         |
+| `infra-pipeline.yml`     | Terraform provisioning / updates                     |
+| `monitoring.yml`         | Deploy & configure monitoring stack (Datadog)        |
+
+> **Note:** Workflows follow GitOps best practices — declarative, version-controlled, automated.
 
 ---
 
 ## Example Commands (Optional)
 
-These commands are **optional examples** to show how some parts of the system can be configured:
-
 ```bash
-# Connect kubectl to the EKS cluster
+# Update kubeconfig to connect to the EKS cluster
 aws eks update-kubeconfig --name "<CLUSTER_NAME>" --region "<AWS_REGION>"
 
-# Create a new Cognito user
+# Create a new Cognito user (admin)
 aws cognito-idp admin-create-user \
     --user-pool-id "<USER_POOL_ID>" \
     --username "<USERNAME>" \
