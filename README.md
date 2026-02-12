@@ -94,7 +94,8 @@ Connects API Gateway to the internal NLB in private subnets for enhanced securit
 
 ### Deployment & Monitoring Diagram
 
-![Deployment & Monitoring Flow](./230e4d6d-4417-452d-8bdb-eb3506fd57fb.png)
+<img width="928" height="381" alt="image" src="https://github.com/user-attachments/assets/ac037757-7e70-4d4e-96dc-3b80c32e06b2" />
+
 
 ### Key Components
 1. **AWS NLB** – Receives external traffic (TCP 80 → NodePort 30080)
@@ -133,24 +134,4 @@ All pipelines live in `.github/workflows`:
 
 > **Note:** Workflows follow GitOps best practices — declarative, version-controlled, automated.
 
----
 
-## Example Commands (Optional)
-
-```bash
-# Update kubeconfig to connect to the EKS cluster
-aws eks update-kubeconfig --name "<CLUSTER_NAME>" --region "<AWS_REGION>"
-
-# Create a new Cognito user (admin)
-aws cognito-idp admin-create-user \
-    --user-pool-id "<USER_POOL_ID>" \
-    --username "<USERNAME>" \
-    --temporary-password "<TEMP_PASSWORD>" \
-    --message-action SUPPRESS
-
-# Set permanent password for the user
-aws cognito-idp admin-set-user-password \
-    --user-pool-id "<USER_POOL_ID>" \
-    --username "<USERNAME>" \
-    --password "<PERMANENT_PASSWORD>" \
-    --permanent
