@@ -2,7 +2,7 @@ replicaCount: 1
 
 image:
   repository: 869483685448.dkr.ecr.eu-west-1.amazonaws.com/prod-db-check
-  tag: 52cc5ae9fd91c5f97ba1de4ee71ce745f05b78a7
+  tag: eb83dcf0bacf6eafdcaa3bf9b27e87d745854ee7
   pullPolicy: Always
 
 service:
