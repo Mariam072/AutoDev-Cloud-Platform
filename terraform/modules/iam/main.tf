@@ -66,8 +66,7 @@ resource "aws_iam_role" "ssm_read_role" {
     Statement = [{
       Effect = "Allow"
       Principal = {
-        Service = "ec2.amazonaws.com"  # لو EKS worker nodes هيقرأوها
-        # Service = "ecs-tasks.amazonaws.com"  # لو pipeline أو ECS
+        Service = "ec2.amazonaws.com"
       }
       Action = "sts:AssumeRole"
     }]
