@@ -6,7 +6,7 @@ resource "aws_security_group" "vpc_link_sg" {
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]  # ممكن تحددي الـ CIDR بتاع الـ API Gateway
+    cidr_blocks = ["0.0.0.0/0"] 
   }
 
   egress {
