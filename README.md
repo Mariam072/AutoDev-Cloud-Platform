@@ -23,8 +23,6 @@ This design ensures security, scalability, and proper routing inside the cluster
 - **Role:** Sends HTTP requests to the platform.
 - **Reason:** Entry point for users or external systems.
 
----
-
 ### 2. API Gateway (HTTP API)
 - **Type:** AWS API Gateway (HTTP API)
 - **Features:** 
@@ -35,8 +33,6 @@ This design ensures security, scalability, and proper routing inside the cluster
   - Handles authentication/authorization.
   - Forwards traffic to backend services securely.
 
----
-
 ### 3. Cognito (JWT Auth)
 - **Type:** AWS Cognito User Pool
 - **Role:** Validates user identity via JWT tokens.
@@ -44,16 +40,12 @@ This design ensures security, scalability, and proper routing inside the cluster
   - Ensures only authorized users access the API.
   - Supports secure authentication flow without hardcoding credentials.
 
----
-
 ### 4. VPC Link
 - **Type:** API Gateway VPC Link
 - **Role:** Connects the API Gateway to **internal resources** in the private VPC.
 - **Reason:** 
   - Enables API Gateway (public) to communicate with private NLB inside VPC.
   - Maintains security by avoiding direct public exposure of internal services.
-
----
 
 ### 5. NLB (Network Load Balancer)
 - **Type:** AWS Network Load Balancer
@@ -63,8 +55,6 @@ This design ensures security, scalability, and proper routing inside the cluster
   - High availability and scalability.
   - Handles TCP routing efficiently inside private subnet.
 
----
-
 ### 6. Worker Node
 - **Type:** EC2 instances (Node Group)
 - **Role:** Hosts pods running application services.
@@ -72,8 +62,6 @@ This design ensures security, scalability, and proper routing inside the cluster
 - **Reason:** 
   - Executes the workloads.
   - Ensures pods have access to necessary AWS resources without over-permissioning.
-
----
 
 ### 7. Ingress Controller
 - **Type:** Nginx / Kubernetes Ingress Controller
@@ -107,12 +95,24 @@ IAM roles provide fine-grained access control for each part of the system:
 
 ---
 
-## Summary
+## Example Commands (Optional)
 
-This architecture provides:
+These commands are **optional examples** to show how some parts of the system can be configured:
 
-- **Secure public access** via API Gateway + Cognito.
-- **Private routing** of traffic through VPC Link and NLB.
-- **Scalable deployment** with worker nodes and Ingress routing.
-- **Fine-grained access control** using Node Roles and IRSA for pods.
-- **Multiple apps routing** handled cleanly by Ingress Controller without changing API Gateway.
+```bash
+# Connect kubectl to the EKS cluster
+aws eks update-kubeconfig --name "<CLUSTER_NAME>" --region "<AWS_REGION>"
+
+# Create a new Cognito user
+aws cognito-idp admin-create-user \
+    --user-pool-id "<USER_POOL_ID>" \
+    --username "<USERNAME>" \
+    --temporary-password "<TEMP_PASSWORD>" \
+    --message-action SUPPRESS
+
+# Set permanent password for the user
+aws cognito-idp admin-set-user-password \
+    --user-pool-id "<USER_POOL_ID>" \
+    --username "<USERNAME>" \
+    --password "<PERMANENT_PASSWORD>" \
+    --permanent
